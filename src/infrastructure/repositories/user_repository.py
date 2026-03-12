@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entity.user import User
@@ -28,6 +28,13 @@ class UserRepository(IRepository[User, UUID]):
         await self.db.commit()
         await self.db.refresh(row)
         return row.to_domain()
+
+    async def update(self, user: User) -> User:
+        row = UserTable.from_domain(user)
+        merged = await self.db.merge(row)
+        await self.db.commit()
+        await self.db.refresh(merged)
+        return merged.to_domain()
 
     async def saveAll(self, entities: Iterable[User]) -> Iterable[User]:
         rows = [UserTable.from_domain(entity) for entity in entities]
