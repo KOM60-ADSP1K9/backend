@@ -7,6 +7,8 @@ by truncating all tables after each test.
 """
 
 import os
+import asyncio
+import pytest_asyncio
 
 # ── 1. Force .env.test BEFORE anything else touches `settings` ────────
 from dotenv import load_dotenv
@@ -17,10 +19,6 @@ load_dotenv(
 )
 
 # ── 2. Now it's safe to import application code ──────────────────────
-import asyncio
-
-import pytest
-import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (

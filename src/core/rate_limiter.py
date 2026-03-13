@@ -1,7 +1,7 @@
 from fastapi import Depends
 from fastapi_limiter.depends import RateLimiter
+from pyrate_limiter import Limiter, Rate
 
-from src.features.auth.auth_controller import Limiter, Rate
 from src.core.config import settings
 
 

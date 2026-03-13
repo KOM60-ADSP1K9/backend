@@ -29,7 +29,6 @@ from tests.e2e.helpers import (
     seed_verified_staff,
 )
 
-
 # ════════════════════════════════════════════════════════════════════
 #  POST /auth/register
 # ════════════════════════════════════════════════════════════════════
@@ -40,7 +39,7 @@ class TestRegister:
 
     @pytest.mark.asyncio
     @patch(
-        "src.features.auth.auth_controller.SmtpEmailService.send_verification_email",
+        "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
     async def test_register_success(
@@ -70,7 +69,7 @@ class TestRegister:
 
     @pytest.mark.asyncio
     @patch(
-        "src.features.auth.auth_controller.SmtpEmailService.send_verification_email",
+        "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
     async def test_register_duplicate_email(

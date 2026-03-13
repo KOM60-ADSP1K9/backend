@@ -11,24 +11,23 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel, ConfigDict, EmailStr
-from pyrate_limiter import Duration, Limiter, Rate
-from sqlalchemy.ext.asyncio import AsyncSession
+from pyrate_limiter import Duration
 
-from src.core.rate_limiter import rate_limit_dependency
+from src.features.auth.auth_dependencies import (
+    get_login_usecase,
+    get_me_usecase,
+    get_register_usecase,
+    get_verify_email_usecase,
+)
 from src.core.auth import get_current_user
-from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
+from src.core.rate_limiter import rate_limit_dependency
 from src.domain.entity.user import User, UserRole
 from src.features.auth.usecase.login_usecase import LoginRequest, LoginUsecase
 from src.features.auth.usecase.me_usecase import MeUsecase
 from src.features.auth.usecase.register_usecase import RegisterRequest, RegisterUsecase
 from src.features.auth.usecase.verify_email_usecase import VerifyEmailUsecase
-from src.infrastructure.repositories.user_repository import UserRepository
-from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
-from src.infrastructure.services.jwt_token_service import JWTTokenService
-from src.infrastructure.services.smtp_email_service import SmtpEmailService
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -89,15 +88,9 @@ class MeResponseDto(BaseModel):
 )
 async def register(
     body: RegisterBody,
-    db: AsyncSession = Depends(get_async_db_session),
+    usecase: RegisterUsecase = Depends(get_register_usecase),
 ) -> HTTPDataResponse[RegisterResponseDto]:
     """Register a new Mahasiswa. A verification email will be sent."""
-    usecase = RegisterUsecase(
-        user_repository=UserRepository(db),
-        password_service=BcryptPasswordService(),
-        token_service=JWTTokenService(),
-        email_service=SmtpEmailService(),
-    )
     result = await usecase.execute(
         RegisterRequest(
             email=body.email,
@@ -121,14 +114,9 @@ async def register(
 )
 async def login(
     body: LoginBody,
-    db: AsyncSession = Depends(get_async_db_session),
+    usecase: LoginUsecase = Depends(get_login_usecase),
 ) -> HTTPDataResponse[LoginResponseDto]:
     """Login with email and password (Mahasiswa & Staff)."""
-    usecase = LoginUsecase(
-        user_repository=UserRepository(db),
-        password_service=BcryptPasswordService(),
-        token_service=JWTTokenService(),
-    )
     result = await usecase.execute(
         LoginRequest(email=body.email, password=body.password),
     )
@@ -148,13 +136,9 @@ async def login(
 )
 async def verify_email(
     token: str = Query(..., description="Email verification token"),
-    db: AsyncSession = Depends(get_async_db_session),
+    usecase: VerifyEmailUsecase = Depends(get_verify_email_usecase),
 ) -> HTTPMessageResponse:
     """Verify a user's email address via the token sent in the email."""
-    usecase = VerifyEmailUsecase(
-        user_repository=UserRepository(db),
-        token_service=JWTTokenService(),
-    )
     await usecase.execute(token)
     return HTTPMessageResponse(
         status="success",
@@ -169,9 +153,9 @@ async def verify_email(
 )
 async def get_me(
     current_user: User = Depends(get_current_user),
+    usecase: MeUsecase = Depends(get_me_usecase),
 ) -> HTTPDataResponse[MeResponseDto]:
     """Get the currently authenticated user's profile."""
-    usecase = MeUsecase()
     result = usecase.execute(current_user)
     return HTTPDataResponse[MeResponseDto](
         status="success",
