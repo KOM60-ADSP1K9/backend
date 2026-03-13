@@ -4,8 +4,10 @@ Password hashing service using bcrypt.
 
 import bcrypt
 
+from src.application.i_password_service import IPasswordService
 
-class BcryptPasswordService:
+
+class BcryptPasswordService(IPasswordService):
     """Bcrypt-backed password hashing."""
 
     def hash(self, plain_password: str) -> str:

@@ -6,16 +6,15 @@ from typing import Generic, TypeVar
 
 T = TypeVar("T")
 ID = TypeVar("ID")
-S = TypeVar("S", bound=T)
 
 
 class IRepository(ABC, Generic[T, ID]):
     @abstractmethod
-    async def save(self, entity: S) -> S:
+    async def save(self, entity: T) -> T:
         pass
 
     @abstractmethod
-    async def saveAll(self, entities: Iterable[S]) -> Iterable[S]:
+    async def saveAll(self, entities: Iterable[T]) -> Iterable[T]:
         pass
 
     @abstractmethod

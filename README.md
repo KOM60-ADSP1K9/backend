@@ -71,6 +71,9 @@ check out my other template : [Nest TS Starter Kit](https://github.com/AghnatHs/
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
+
+   cp .env.example .env.test
+   # Edit .env.test with your for test environment credentials
    ```
 
 4. **Install pre-commit hooks**
@@ -141,5 +144,5 @@ ruff check --fix
 ## Testing
 
 ```bash
-pytest
+pytest tests/ -v
 ```

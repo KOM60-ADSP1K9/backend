@@ -1,11 +1,9 @@
 """Usecase: Login (email + password) for both Mahasiswa and Staff."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.exceptions import AuthenticationException
-from src.infrastructure.repositories.user_repository import UserRepository
-from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
-from src.infrastructure.services.jwt_token_service import JWTTokenService
+from src.application.i_password_service import IPasswordService
+from src.application.i_token_service import ITokenService
+from src.domain.entity.i_user_repository import IUserRepository
 
 
 class LoginRequest:
@@ -19,26 +17,34 @@ class LoginResult:
         self.access_token = access_token
 
 
-async def login_usecase(
-    request: LoginRequest,
-    db: AsyncSession,
-) -> LoginResult:
-    """Execute the login."""
+class LoginUsecase:
+    """Login use case with injected dependencies."""
 
-    repo = UserRepository(db)
+    def __init__(
+        self,
+        user_repository: IUserRepository,
+        password_service: IPasswordService,
+        token_service: ITokenService,
+    ) -> None:
+        self._user_repository = user_repository
+        self._password_service = password_service
+        self._token_service = token_service
 
-    user = await repo.find_by_email(request.email)
-    if user is None:
-        raise AuthenticationException("Email atau password salah")
+    async def execute(self, request: LoginRequest) -> LoginResult:
+        """Execute the login."""
 
-    password_service = BcryptPasswordService()
-    if not password_service.verify(request.password, user.hashed_password):
-        raise AuthenticationException("Email atau password salah")
+        user = await self._user_repository.find_by_email(request.email)
+        if user is None:
+            raise AuthenticationException("Email atau password salah")
 
-    if not user.is_email_verified:
-        raise AuthenticationException("Silahkan verifikasi email Anda sebelum login")
+        if not self._password_service.verify(request.password, user.hashed_password):
+            raise AuthenticationException("Email atau password salah")
 
-    token_service = JWTTokenService()
-    access_token = token_service.create_access_token(user)
+        if not user.is_email_verified:
+            raise AuthenticationException(
+                "Silahkan verifikasi email Anda sebelum login"
+            )
 
-    return LoginResult(access_token=access_token)
+        access_token = self._token_service.create_access_token(user)
+
+        return LoginResult(access_token=access_token)

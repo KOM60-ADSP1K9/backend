@@ -8,6 +8,9 @@ class MeResult:
         self.user = user
 
 
-def me_usecase(user: User) -> MeResult:
-    """Return the current user."""
-    return MeResult(user=user)
+class MeUsecase:
+    """Current-user profile use case (no external dependencies)."""
+
+    def execute(self, user: User) -> MeResult:
+        """Return the current user."""
+        return MeResult(user=user)

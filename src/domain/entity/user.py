@@ -3,7 +3,7 @@ Domain model for user
 """
 
 import enum
-from datetime import datetime
+import datetime
 from typing import Self
 from uuid import UUID, uuid4
 
@@ -33,7 +33,7 @@ class User:
         if not email.endswith(ALLOWED_EMAIL_DOMAIN):
             raise ValueError(f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan")
 
-        now = datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         return cls(
             id=uuid4(),
             email=email,
@@ -58,9 +58,9 @@ class User:
         fakultas: str | None = None,
         departemen: str | None = None,
         nip: str | None = None,
-        email_verified_at: datetime | None = None,
-        created_at: datetime | None = None,
-        updated_at: datetime | None = None,
+        email_verified_at: datetime.datetime | None = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
     ) -> None:
         self.id = id
         self.email = email
@@ -80,5 +80,5 @@ class User:
 
     def verify_email(self) -> None:
         """Mark the email as verified."""
-        self.email_verified_at = datetime.utcnow()
+        self.email_verified_at = datetime.datetime.now(datetime.timezone.utc)
         self.updated_at = self.email_verified_at

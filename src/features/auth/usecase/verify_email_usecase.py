@@ -1,11 +1,9 @@
 """Usecase: Verify user email via token link."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.exceptions import AuthenticationException, BadRequestException
 from src.domain.entity.user import User
-from src.infrastructure.repositories.user_repository import UserRepository
-from src.infrastructure.services.jwt_token_service import JWTTokenService
+from src.application.i_token_service import ITokenService
+from src.domain.entity.i_user_repository import IUserRepository
 
 
 class VerifyEmailResult:
@@ -13,27 +11,32 @@ class VerifyEmailResult:
         self.user = user
 
 
-async def verify_email_usecase(
-    token: str,
-    db: AsyncSession,
-) -> VerifyEmailResult:
-    """Execute the email verification flow."""
+class VerifyEmailUsecase:
+    """Email verification use case with injected dependencies."""
 
-    token_service = JWTTokenService()
-    email = token_service.verify_email_token(token)
+    def __init__(
+        self,
+        user_repository: IUserRepository,
+        token_service: ITokenService,
+    ) -> None:
+        self._user_repository = user_repository
+        self._token_service = token_service
 
-    repo = UserRepository(db)
+    async def execute(self, token: str) -> VerifyEmailResult:
+        """Execute the email verification flow."""
 
-    user = await repo.find_by_email(email)
-    if user is None:
-        raise AuthenticationException(
-            "Verifikasi token tidak valid: pengguna tidak ditemukan"
-        )
+        email = self._token_service.verify_email_token(token)
 
-    if user.is_email_verified:
-        raise BadRequestException("Email sudah diverifikasi")
+        user = await self._user_repository.find_by_email(email)
+        if user is None:
+            raise AuthenticationException(
+                "Verifikasi token tidak valid: pengguna tidak ditemukan"
+            )
 
-    user.verify_email()
-    user = await repo.update(user)
+        if user.is_email_verified:
+            raise BadRequestException("Email sudah diverifikasi")
 
-    return VerifyEmailResult(user=user)
+        user.verify_email()
+        user = await self._user_repository.update(user)
+
+        return VerifyEmailResult(user=user)
