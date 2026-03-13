@@ -30,7 +30,7 @@ class RegisterResult:
 
 
 class RegisterUsecase:
-    """Registration use case with injected dependencies."""
+    """Registration use case"""
 
     def __init__(
         self,

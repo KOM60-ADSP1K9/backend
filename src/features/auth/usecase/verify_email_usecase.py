@@ -12,7 +12,7 @@ class VerifyEmailResult:
 
 
 class VerifyEmailUsecase:
-    """Email verification use case with injected dependencies."""
+    """Email verification use case"""
 
     def __init__(
         self,

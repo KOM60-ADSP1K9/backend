@@ -18,7 +18,7 @@ class LoginResult:
 
 
 class LoginUsecase:
-    """Login use case with injected dependencies."""
+    """Login use case"""
 
     def __init__(
         self,
