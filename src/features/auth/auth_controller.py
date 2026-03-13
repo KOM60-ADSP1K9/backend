@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.rate_limiter import rate_limit_dependency
 from src.core.auth import get_current_user
-from src.core.config import settings
 from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.domain.entity.user import User, UserRole
