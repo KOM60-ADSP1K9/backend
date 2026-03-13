@@ -11,10 +11,14 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel, ConfigDict, EmailStr
+from pyrate_limiter import Duration, Limiter, Rate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.rate_limiter import rate_limit_dependency
 from src.core.auth import get_current_user
+from src.core.config import settings
 from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.domain.entity.user import User, UserRole
@@ -82,6 +86,7 @@ class MeResponseDto(BaseModel):
     "/register",
     response_model=HTTPDataResponse[RegisterResponseDto],
     status_code=201,
+    dependencies=rate_limit_dependency(5, Duration.MINUTE * 10),
 )
 async def register(
     body: RegisterBody,
@@ -113,6 +118,7 @@ async def register(
 @auth_router.post(
     "/login",
     response_model=HTTPDataResponse[LoginResponseDto],
+    dependencies=rate_limit_dependency(5, Duration.MINUTE * 1),
 )
 async def login(
     body: LoginBody,
@@ -139,6 +145,7 @@ async def login(
 @auth_router.get(
     "/verify-email",
     response_model=HTTPMessageResponse,
+    dependencies=rate_limit_dependency(5, Duration.MINUTE * 1),
 )
 async def verify_email(
     token: str = Query(..., description="Email verification token"),
@@ -159,6 +166,7 @@ async def verify_email(
 @auth_router.get(
     "/me",
     response_model=HTTPDataResponse[MeResponseDto],
+    dependencies=rate_limit_dependency(40, Duration.MINUTE),
 )
 async def get_me(
     current_user: User = Depends(get_current_user),
