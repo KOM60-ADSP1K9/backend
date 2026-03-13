@@ -35,7 +35,7 @@ class SmtpEmailService(IEmailService):
             "<h2>Email Verification</h2>"
             "<p>Tekan link di bawah ini untuk memverifikasi alamat email Anda:</p>"
             f'<p><a href="{verify_url}">{verify_url}</a></p>'
-            f"<p>Link ini akan kedaluwarsa dalam {settings.JWT_EXPIRES_MINUTES} menit.</p>"
+            f"<p>Link ini akan kedaluwarsa dalam 10 menit.</p>"
         )
 
         message = MessageSchema(

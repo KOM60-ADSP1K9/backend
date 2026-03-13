@@ -25,7 +25,9 @@ class VerifyEmailUsecase:
     async def execute(self, token: str) -> VerifyEmailResult:
         """Execute the email verification flow."""
 
-        email = self._token_service.verify_email_token(token)
+        email = self._token_service.verify_email_token(
+            token, 10 * 60
+        )  # 10 minutes expiration
 
         user = await self._user_repository.find_by_email(email)
         if user is None:
