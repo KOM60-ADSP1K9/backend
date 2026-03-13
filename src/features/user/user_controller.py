@@ -15,7 +15,8 @@ from src.core.auth import require_role
 from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse
 from src.domain.entity.user import User, UserRole
-from src.features.user.usecase.get_all_users_usecase import get_all_users_usecase
+from src.features.user.usecase.get_all_users_usecase import GetAllUsersUsecase
+from src.infrastructure.repositories.user_repository import UserRepository
 
 user_router = APIRouter(prefix="/users", tags=["users"])
 
@@ -47,7 +48,8 @@ async def get_all_users(
     db: AsyncSession = Depends(get_async_db_session),
 ) -> HTTPDataResponse[list[UserResponseDto]]:
     """Get all users. **Staff only.**"""
-    result = await get_all_users_usecase(db)
+    usecase = GetAllUsersUsecase(user_repository=UserRepository(db))
+    result = await usecase.execute()
     return HTTPDataResponse[list[UserResponseDto]](
         status="success",
         data=[UserResponseDto.model_validate(u) for u in result.users],

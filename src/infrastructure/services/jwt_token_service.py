@@ -6,20 +6,12 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from src.core.config import settings
 from src.core.exceptions import AuthenticationException
 from src.domain.entity.user import User
+from src.application.i_token_service import TokenPayload, ITokenService
 
 _EMAIL_SALT = "email-verification-salt"
 
 
-class TokenPayload:
-    """Decoded token payload."""
-
-    def __init__(self, user_id: UUID, email: str, role: str) -> None:
-        self.user_id = user_id
-        self.email = email
-        self.role = role
-
-
-class JWTTokenService:
+class JWTTokenService(ITokenService):
     """Concrete JWT implementation backed by HMAC-SHA512."""
 
     def __init__(self) -> None:

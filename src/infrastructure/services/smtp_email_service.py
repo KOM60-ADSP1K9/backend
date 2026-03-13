@@ -8,6 +8,7 @@ from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from pydantic import NameEmail, SecretStr
 
 from src.core.config import settings
+from src.application.i_email_service import IEmailService
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ _mail_conf = ConnectionConfig(
 )
 
 
-class SmtpEmailService:
+class SmtpEmailService(IEmailService):
     """Send transactional emails via SMTP using fastapi-mail."""
 
     async def send_verification_email(self, to_email: str, token: str) -> None:

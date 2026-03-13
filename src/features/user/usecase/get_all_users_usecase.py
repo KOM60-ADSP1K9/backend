@@ -1,9 +1,8 @@
 """Usecase: Get all users (Staff only)."""
 
 from collections.abc import Iterable
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entity.user import User
-from src.infrastructure.repositories.user_repository import UserRepository
+from src.domain.entity.i_user_repository import IUserRepository
 
 
 class GetAllUsersResult:
@@ -11,8 +10,13 @@ class GetAllUsersResult:
         self.users = users
 
 
-async def get_all_users_usecase(db: AsyncSession) -> GetAllUsersResult:
-    """Return every user in the system."""
-    repo = UserRepository(db)
-    users = await repo.findAll()
-    return GetAllUsersResult(users=users)
+class GetAllUsersUsecase:
+    """Get-all-users use case with injected repository."""
+
+    def __init__(self, user_repository: IUserRepository) -> None:
+        self._user_repository = user_repository
+
+    async def execute(self) -> GetAllUsersResult:
+        """Return every user in the system."""
+        users = await self._user_repository.findAll()
+        return GetAllUsersResult(users=users)

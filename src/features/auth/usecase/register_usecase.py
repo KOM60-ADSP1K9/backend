@@ -1,12 +1,11 @@
 """Usecase: Register a new Mahasiswa."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.exceptions import BadRequestException, ConflictException
 from src.domain.entity.user import ALLOWED_EMAIL_DOMAIN, User, UserRole
-from src.infrastructure.repositories.user_repository import UserRepository
-from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
-from src.infrastructure.services.jwt_token_service import JWTTokenService
-from src.infrastructure.services.smtp_email_service import SmtpEmailService
+from src.application.i_email_service import IEmailService
+from src.application.i_password_service import IPasswordService
+from src.application.i_token_service import ITokenService
+from src.domain.entity.i_user_repository import IUserRepository
 
 
 class RegisterRequest:
@@ -30,41 +29,47 @@ class RegisterResult:
         self.user = user
 
 
-async def register_usecase(
-    request: RegisterRequest,
-    db: AsyncSession,
-) -> RegisterResult:
-    """Execute the registration."""
+class RegisterUsecase:
+    """Registration use case with injected dependencies."""
 
-    if not request.email.endswith(ALLOWED_EMAIL_DOMAIN):
-        raise BadRequestException(
-            f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan"
+    def __init__(
+        self,
+        user_repository: IUserRepository,
+        password_service: IPasswordService,
+        token_service: ITokenService,
+        email_service: IEmailService,
+    ) -> None:
+        self._user_repository = user_repository
+        self._password_service = password_service
+        self._token_service = token_service
+        self._email_service = email_service
+
+    async def execute(self, request: RegisterRequest) -> RegisterResult:
+        """Execute the registration."""
+
+        if not request.email.endswith(ALLOWED_EMAIL_DOMAIN):
+            raise BadRequestException(
+                f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan"
+            )
+
+        existing = await self._user_repository.find_by_email(request.email)
+        if existing is not None:
+            raise ConflictException("Email sudah terdaftar")
+
+        hashed_password = self._password_service.hash(request.password)
+
+        user = User.register(
+            email=request.email,
+            hashed_password=hashed_password,
+            role=UserRole.MAHASISWA,
+            nim=request.nim,
+            fakultas=request.fakultas,
+            departemen=request.departemen,
         )
 
-    repo = UserRepository(db)
+        user = await self._user_repository.save(user)
 
-    existing = await repo.find_by_email(request.email)
-    if existing is not None:
-        raise ConflictException("Email sudah terdaftar")
+        verify_token = self._token_service.generate_verification_token(user.email)
+        await self._email_service.send_verification_email(user.email, verify_token)
 
-    password_service = BcryptPasswordService()
-    hashed_password = password_service.hash(request.password)
-
-    user = User.register(
-        email=request.email,
-        hashed_password=hashed_password,
-        role=UserRole.MAHASISWA,
-        nim=request.nim,
-        fakultas=request.fakultas,
-        departemen=request.departemen,
-    )
-
-    user = await repo.save(user)
-
-    token_service = JWTTokenService()
-    verify_token = token_service.generate_verification_token(user.email)
-
-    email_service = SmtpEmailService()
-    await email_service.send_verification_email(user.email, verify_token)
-
-    return RegisterResult(user=user)
+        return RegisterResult(user=user)
