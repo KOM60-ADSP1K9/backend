@@ -8,7 +8,7 @@ from src.core.exceptions import AuthenticationException
 from src.domain.entity.user import User
 from src.application.i_token_service import TokenPayload, ITokenService
 
-_EMAIL_SALT = "email-verification-salt"
+_EMAIL_SALT = settings.EMAIL_SALT
 
 
 class JWTTokenService(ITokenService):

@@ -28,6 +28,8 @@ class Settings:
             "JWT_EXPIRES_MINUTES", min_value=1, max_value=365 * 24 * 60
         )
         self.JWT_ALGORITHM = "HS512"
+        self.EMAIL_SALT = self._get_required("EMAIL_SALT")
+
         self.BASE_URL = self._get_required("BASE_URL")
 
         self.SMTP_HOST = os.getenv("SMTP_HOST", "")
