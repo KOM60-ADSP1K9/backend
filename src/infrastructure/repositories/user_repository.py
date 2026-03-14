@@ -5,11 +5,11 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entity.user import User
-from src.infrastructure.repositories.repository import IRepository
+from src.domain.entity.i_user_repository import IUserRepository
 from src.infrastructure.tables.user_table import UserTable
 
 
-class UserRepository(IRepository[User, UUID]):
+class UserRepository(IUserRepository):
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
@@ -22,12 +22,19 @@ class UserRepository(IRepository[User, UUID]):
             return None
         return user_in_db.to_domain()
 
-    async def save(self, user: User) -> User:
-        row = UserTable.from_domain(user)
+    async def save(self, entity: User) -> User:
+        row = UserTable.from_domain(entity)
         self.db.add(row)
         await self.db.commit()
         await self.db.refresh(row)
         return row.to_domain()
+
+    async def update(self, entity: User) -> User:
+        row = UserTable.from_domain(entity)
+        merged = await self.db.merge(row)
+        await self.db.commit()
+        await self.db.refresh(merged)
+        return merged.to_domain()
 
     async def saveAll(self, entities: Iterable[User]) -> Iterable[User]:
         rows = [UserTable.from_domain(entity) for entity in entities]

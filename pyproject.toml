@@ -7,13 +7,33 @@ requires-python = ">=3.13.11"
 dependencies = [
     "alembic>=1.18.3",
     "asyncpg>=0.31.0",
+    "bcrypt>=5.0.0",
     "black>=26.1.0",
+    "email-validator>=2.3.0",
     "fastapi>=0.128.7",
+    "fastapi-mail>=1.4.2",
     "fastapi-users[sqlalchemy]>=15.0.4",
+    "itsdangerous>=2.2.0",
     "pre-commit>=4.5.1",
     "psycopg2-binary>=2.9.11",
+    "pyjwt>=2.11.0",
     "pytest>=9.0.2",
     "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.22",
     "ruff>=0.15.0",
     "uvicorn[standard]>=0.40.0",
 ]
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest-asyncio>=1.3.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.pylint.TYPECHECK]
+ignored-modules = ["sqlalchemy", "sqlalchemy.sql.functions"]
+ignored-classes = ["func", "Column", "DateTime"]
+generated-members = ["sqlalchemy.*", "func.*"]

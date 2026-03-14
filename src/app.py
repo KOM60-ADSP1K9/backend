@@ -5,9 +5,23 @@ Main entry
 from fastapi import FastAPI
 
 from src.core.error_handler import add_global_exception_handlers
-from src.features.user.get_all_user.get_all_user import get_all_user_router
+from src.features.auth.auth_controller import auth_router
+from src.features.user.user_controller import user_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 add_global_exception_handlers(app)
 
-app.include_router(get_all_user_router)
+# Auth module (public + protected)
+app.include_router(auth_router)
+
+# User module (protected – Staff only)
+app.include_router(user_router)

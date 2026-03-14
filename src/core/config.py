@@ -4,7 +4,6 @@ Configuration settings for the application.
 """
 
 import os
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,8 +26,20 @@ class Settings:
         self.JWT_SECRET_KEY = self._get_required("JWT_SECRET_KEY")
         self.JWT_EXPIRES_MINUTES = self._get_required_int(
             "JWT_EXPIRES_MINUTES", min_value=1, max_value=365 * 24 * 60
-        )  # in minutes
+        )
         self.JWT_ALGORITHM = "HS512"
+        self.EMAIL_SALT = self._get_required("EMAIL_SALT")
+
+        self.BASE_URL = self._get_required("BASE_URL")
+
+        self.SMTP_HOST = os.getenv("SMTP_HOST", "")
+        self.SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+        self.SMTP_USER = os.getenv("SMTP_USER", "")
+        self.SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+        self.SMTP_FROM = os.getenv("SMTP_FROM", "noreply@apps.ipb.ac.id")
+        self.VERIFICATION_SECRET_KEY = os.getenv(
+            "VERIFICATION_SECRET_KEY", self.JWT_SECRET_KEY
+        )
 
     @staticmethod
     def _get_required(key: str) -> str:
