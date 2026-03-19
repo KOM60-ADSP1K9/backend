@@ -1,11 +1,11 @@
 """Usecase: Register a new Mahasiswa."""
 
+from src.domain.entity.i_mahasiswa_repository import IMahasiswaRepository
 from src.core.exceptions import BadRequestException, ConflictException
 from src.domain.entity.user import ALLOWED_EMAIL_DOMAIN, Mahasiswa, User
 from src.application.i_email_service import IEmailService
 from src.application.i_password_service import IPasswordService
 from src.application.i_token_service import ITokenService
-from src.domain.entity.i_user_repository import IUserRepository
 
 
 class RegisterRequest:
@@ -34,12 +34,12 @@ class RegisterUsecase:
 
     def __init__(
         self,
-        user_repository: IUserRepository,
+        mhs_repository: IMahasiswaRepository,
         password_service: IPasswordService,
         token_service: ITokenService,
         email_service: IEmailService,
     ) -> None:
-        self._user_repository = user_repository
+        self._mhs_repository = mhs_repository
         self._password_service = password_service
         self._token_service = token_service
         self._email_service = email_service
@@ -52,9 +52,9 @@ class RegisterUsecase:
                 f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan"
             )
 
-        existing = await self._user_repository.find_by_email(request.email)
+        existing = await self._mhs_repository.find_by_email(request.email)
         if existing is not None:
-            raise ConflictException("Email sudah terdaftar")
+            raise ConflictException(f"Email {request.email} sudah terdaftar")
 
         hashed_password = self._password_service.hash(request.password)
 
@@ -66,7 +66,7 @@ class RegisterUsecase:
             departemen=request.departemen,
         )
 
-        user = await self._user_repository.save(user)
+        user = await self._mhs_repository.save(user)
 
         verify_token = self._token_service.generate_verification_token(user.email)
         await self._email_service.send_verification_email(user.email, verify_token)

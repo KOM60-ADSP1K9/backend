@@ -3,6 +3,7 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.infrastructure.repositories.mahasiswa_repository import MahasiswaRepository
 from src.core.db import get_async_db_session
 from src.features.auth.usecase.login_usecase import LoginUsecase
 from src.features.auth.usecase.me_usecase import MeUsecase
@@ -20,6 +21,12 @@ def get_user_repository(
     return UserRepository(db)
 
 
+def get_mhs_repository(
+    db: AsyncSession = Depends(get_async_db_session),
+) -> UserRepository:
+    return MahasiswaRepository(db)
+
+
 def get_password_service() -> BcryptPasswordService:
     return BcryptPasswordService()
 
@@ -33,13 +40,13 @@ def get_email_service() -> SmtpEmailService:
 
 
 def get_register_usecase(
-    user_repository: UserRepository = Depends(get_user_repository),
+    mhs_repository: MahasiswaRepository = Depends(get_mhs_repository),
     password_service: BcryptPasswordService = Depends(get_password_service),
     token_service: JWTTokenService = Depends(get_token_service),
     email_service: SmtpEmailService = Depends(get_email_service),
 ) -> RegisterUsecase:
     return RegisterUsecase(
-        user_repository=user_repository,
+        mhs_repository=mhs_repository,
         password_service=password_service,
         token_service=token_service,
         email_service=email_service,

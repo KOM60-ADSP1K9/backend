@@ -59,22 +59,36 @@ class UserTable(Base):
         nullable=False,
     )
 
-    def to_domain(self) -> User:
-        """Convert table model to domain model"""
-        if self.role == UserRole.STAFF:
-            return Staff(
-                id=self.id,
-                email=self.email,
-                hashed_password=self.hashed_password,
-                nip=self.nip,
-                nim=self.nim,
-                fakultas=self.fakultas,
-                departemen=self.departemen,
-                email_verified_at=self.email_verified_at,
-                created_at=self.created_at,
-                updated_at=self.updated_at,
-            )
+    def to_user(self) -> User:
+        return User(
+            id=self.id,
+            email=self.email,
+            hashed_password=self.hashed_password,
+            role=self.role,
+            nim=self.nim,
+            fakultas=self.fakultas,
+            departemen=self.departemen,
+            nip=self.nip,
+            email_verified_at=self.email_verified_at,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
 
+    def to_staff(self) -> Staff:
+        return Staff(
+            id=self.id,
+            email=self.email,
+            hashed_password=self.hashed_password,
+            nip=self.nip,
+            nim=self.nim,
+            fakultas=self.fakultas,
+            departemen=self.departemen,
+            email_verified_at=self.email_verified_at,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
+
+    def to_mahasiswa(self) -> Mahasiswa:
         return Mahasiswa(
             id=self.id,
             email=self.email,
