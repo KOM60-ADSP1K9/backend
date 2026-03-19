@@ -58,7 +58,7 @@ class RegisterUsecase:
 
         hashed_password = self._password_service.hash(request.password)
 
-        user = Mahasiswa.New(
+        newMahasiswa = Mahasiswa.New(
             email=request.email,
             hashed_password=hashed_password,
             nim=request.nim,
@@ -66,9 +66,13 @@ class RegisterUsecase:
             departemen=request.departemen,
         )
 
-        user = await self._mhs_repository.save(user)
+        newMahasiswa = await self._mhs_repository.save(newMahasiswa)
 
-        verify_token = self._token_service.generate_verification_token(user.email)
-        await self._email_service.send_verification_email(user.email, verify_token)
+        verify_token = self._token_service.generate_verification_token(
+            newMahasiswa.email
+        )
+        await self._email_service.send_verification_email(
+            newMahasiswa.email, verify_token
+        )
 
-        return RegisterResult(user=user)
+        return RegisterResult(user=newMahasiswa)
