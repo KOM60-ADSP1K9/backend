@@ -2,6 +2,7 @@
 Domain model for user
 """
 
+from dataclasses import dataclass
 import enum
 import datetime
 from typing import Self
@@ -15,8 +16,21 @@ class UserRole(str, enum.Enum):
     STAFF = "STAFF"
 
 
+@dataclass
 class User:
     """User domain model"""
+
+    id: UUID
+    email: str
+    hashed_password: str
+    role: UserRole
+    nim: str | None = None
+    fakultas: str | None = None
+    departemen: str | None = None
+    nip: str | None = None
+    email_verified_at: datetime.datetime | None = None
+    created_at: datetime.datetime | None = None
+    updated_at: datetime.datetime | None = None
 
     @classmethod
     def register(
