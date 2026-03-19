@@ -30,7 +30,7 @@ _HASHED_STAFF_PASSWORD = _pwd_svc.hash(STAFF_PASSWORD)
 
 async def seed_verified_mahasiswa(db: AsyncSession) -> User:
     """Insert a verified MAHASISWA and return the domain entity."""
-    user = User.register(
+    user = User.New(
         email=VALID_EMAIL,
         hashed_password=_HASHED_PASSWORD,
         role=UserRole.MAHASISWA,
@@ -44,7 +44,7 @@ async def seed_verified_mahasiswa(db: AsyncSession) -> User:
 
 async def seed_unverified_mahasiswa(db: AsyncSession) -> User:
     """Insert an unverified MAHASISWA and return the domain entity."""
-    user = User.register(
+    user = User.New(
         email=VALID_EMAIL,
         hashed_password=_HASHED_PASSWORD,
         role=UserRole.MAHASISWA,
@@ -57,7 +57,7 @@ async def seed_unverified_mahasiswa(db: AsyncSession) -> User:
 
 async def seed_verified_staff(db: AsyncSession) -> User:
     """Insert a verified STAFF user and return the domain entity."""
-    user = User.register(
+    user = User.New(
         email=STAFF_EMAIL,
         hashed_password=_HASHED_STAFF_PASSWORD,
         role=UserRole.STAFF,
