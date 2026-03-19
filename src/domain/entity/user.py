@@ -102,6 +102,7 @@ class User:
         self.updated_at = self.email_verified_at
 
 
+@dataclass
 class Mahasiswa(User):
     """Mahasiswa domain model."""
 
@@ -157,6 +158,7 @@ class Mahasiswa(User):
         )
 
 
+@dataclass
 class Staff(User):
     """Staff domain model."""
 
