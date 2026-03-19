@@ -9,7 +9,7 @@ from sqlalchemy import String, DateTime, Enum, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from src.core.db import Base
-from src.domain.entity.user import User, UserRole
+from src.domain.entity.user import Mahasiswa, Staff, User, UserRole
 
 
 class UserTable(Base):
@@ -61,11 +61,24 @@ class UserTable(Base):
 
     def to_domain(self) -> User:
         """Convert table model to domain model"""
-        return User(
+        if self.role == UserRole.STAFF:
+            return Staff(
+                id=self.id,
+                email=self.email,
+                hashed_password=self.hashed_password,
+                nip=self.nip,
+                nim=self.nim,
+                fakultas=self.fakultas,
+                departemen=self.departemen,
+                email_verified_at=self.email_verified_at,
+                created_at=self.created_at,
+                updated_at=self.updated_at,
+            )
+
+        return Mahasiswa(
             id=self.id,
             email=self.email,
             hashed_password=self.hashed_password,
-            role=self.role,
             nim=self.nim,
             fakultas=self.fakultas,
             departemen=self.departemen,

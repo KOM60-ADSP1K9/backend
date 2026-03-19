@@ -1,7 +1,7 @@
 """Usecase: Register a new Mahasiswa."""
 
 from src.core.exceptions import BadRequestException, ConflictException
-from src.domain.entity.user import ALLOWED_EMAIL_DOMAIN, User, UserRole
+from src.domain.entity.user import ALLOWED_EMAIL_DOMAIN, Mahasiswa, User
 from src.application.i_email_service import IEmailService
 from src.application.i_password_service import IPasswordService
 from src.application.i_token_service import ITokenService
@@ -58,10 +58,9 @@ class RegisterUsecase:
 
         hashed_password = self._password_service.hash(request.password)
 
-        user = User.register(
+        user = Mahasiswa.New(
             email=request.email,
             hashed_password=hashed_password,
-            role=UserRole.MAHASISWA,
             nim=request.nim,
             fakultas=request.fakultas,
             departemen=request.departemen,

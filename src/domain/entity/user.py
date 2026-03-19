@@ -16,6 +16,11 @@ class UserRole(str, enum.Enum):
     STAFF = "STAFF"
 
 
+def _assert_email_domain(email: str) -> None:
+    if not email.endswith(ALLOWED_EMAIL_DOMAIN):
+        raise ValueError(f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan")
+
+
 @dataclass
 class User:
     """User domain model"""
@@ -33,7 +38,7 @@ class User:
     updated_at: datetime.datetime | None = None
 
     @classmethod
-    def register(
+    def New(
         cls,
         email: str,
         hashed_password: str,
@@ -44,8 +49,7 @@ class User:
         nip: str | None = None,
     ) -> Self:
         """Register a new user with domain validation."""
-        if not email.endswith(ALLOWED_EMAIL_DOMAIN):
-            raise ValueError(f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan")
+        _assert_email_domain(email)
 
         now = datetime.datetime.now(datetime.timezone.utc)
         return cls(
@@ -96,3 +100,109 @@ class User:
         """Mark the email as verified."""
         self.email_verified_at = datetime.datetime.now(datetime.timezone.utc)
         self.updated_at = self.email_verified_at
+
+
+class Mahasiswa(User):
+    """Mahasiswa domain model."""
+
+    def __init__(
+        self,
+        id: UUID,
+        email: str,
+        hashed_password: str,
+        nim: str | None = None,
+        fakultas: str | None = None,
+        departemen: str | None = None,
+        nip: str | None = None,
+        email_verified_at: datetime.datetime | None = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            id=id,
+            email=email,
+            hashed_password=hashed_password,
+            role=UserRole.MAHASISWA,
+            nim=nim,
+            fakultas=fakultas,
+            departemen=departemen,
+            nip=nip,
+            email_verified_at=email_verified_at,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+
+    @classmethod
+    def New(
+        cls,
+        email: str,
+        hashed_password: str,
+        nim: str | None = None,
+        fakultas: str | None = None,
+        departemen: str | None = None,
+    ) -> Self:
+        """Register a new mahasiswa user."""
+        _assert_email_domain(email)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return cls(
+            id=uuid4(),
+            email=email,
+            hashed_password=hashed_password,
+            nim=nim,
+            fakultas=fakultas,
+            departemen=departemen,
+            email_verified_at=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+
+class Staff(User):
+    """Staff domain model."""
+
+    def __init__(
+        self,
+        id: UUID,
+        email: str,
+        hashed_password: str,
+        nip: str | None = None,
+        nim: str | None = None,
+        fakultas: str | None = None,
+        departemen: str | None = None,
+        email_verified_at: datetime.datetime | None = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            id=id,
+            email=email,
+            hashed_password=hashed_password,
+            role=UserRole.STAFF,
+            nim=nim,
+            fakultas=fakultas,
+            departemen=departemen,
+            nip=nip,
+            email_verified_at=email_verified_at,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+
+    @classmethod
+    def New(
+        cls,
+        email: str,
+        hashed_password: str,
+        nip: str | None = None,
+    ) -> Self:
+        """Register a new staff user."""
+        _assert_email_domain(email)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return cls(
+            id=uuid4(),
+            email=email,
+            hashed_password=hashed_password,
+            nip=nip,
+            email_verified_at=None,
+            created_at=now,
+            updated_at=now,
+        )
