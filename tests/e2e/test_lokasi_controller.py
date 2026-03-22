@@ -10,7 +10,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.tables.lokasi_table import LokasiTable
-from tests.e2e.helpers import get_auth_header, seed_verified_mahasiswa
+from tests.e2e.helpers import (
+    get_auth_header,
+    seed_unverified_mahasiswa,
+    seed_verified_mahasiswa,
+    seed_verified_staff,
+)
 
 
 async def seed_locations(db_session: AsyncSession) -> None:
@@ -34,6 +39,48 @@ class TestGetAllLocations:
     ):
         """Authenticated user should receive all stored locations."""
         user = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(user)
+        await seed_locations(db_session)
+
+        resp = await client.get("/locations", headers=headers)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Locations fetched successfully"
+        assert isinstance(body["data"], list)
+        assert len(body["data"]) == 3
+
+        names = [item["name"] for item in body["data"]]
+        assert names == ["A lokasi", "Lokasi 1", "Lokasi 2"]
+
+    @pytest.mark.asyncio
+    async def test_get_all_locations_authenticated_staff_and_sorted_by_name(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Authenticated user (staff) should receive all stored locations."""
+        user = await seed_verified_staff(db_session)
+        headers = get_auth_header(user)
+        await seed_locations(db_session)
+
+        resp = await client.get("/locations", headers=headers)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Locations fetched successfully"
+        assert isinstance(body["data"], list)
+        assert len(body["data"]) == 3
+
+        names = [item["name"] for item in body["data"]]
+        assert names == ["A lokasi", "Lokasi 1", "Lokasi 2"]
+
+    @pytest.mark.asyncio
+    async def test_get_all_locations_unverified_user(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Unverified user should not be able to access locations."""
+        user = await seed_unverified_mahasiswa(db_session)
         headers = get_auth_header(user)
         await seed_locations(db_session)
 
