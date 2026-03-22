@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import asc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -14,6 +14,8 @@ class LokasiRepository(ILokasiRepository):
         self.db = db
 
     async def get_all(self) -> Iterable[Lokasi]:
-        result = await self.db.execute(select(LokasiTable))
+        result = await self.db.execute(
+            select(LokasiTable).order_by(asc(LokasiTable.name))
+        )
         rows = result.scalars().all()
         return [row.to_domain() for row in rows]
