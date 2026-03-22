@@ -14,19 +14,19 @@ PASSWORD_HASHER = BcryptPasswordService()
 
 LOKASI_SEED_DATA: list[dict[str, Any]] = [
     {
-        "name": "Gerbang 1 IPB Dramaga",
-        "latitude": -6.557395,
-        "longitude": 106.726111,
+        "name": "FMIPA Kering IPB",
+        "latitude": -6.55766998308493,
+        "longitude": 106.73123692186275,
     },
     {
-        "name": "Gedung Rektorat Andi Hakim Nasoetion",
-        "latitude": -6.5591,
-        "longitude": 106.72531,
+        "name": "Gedung CCR (Common Class Room)",
+        "latitude": -6.556105560715166,
+        "longitude": 106.73109118579328,
     },
     {
-        "name": "Fakultas Teknik IPB",
-        "latitude": -6.56023,
-        "longitude": 106.72245,
+        "name": "Gymnasium",
+        "latitude": -6.557179431578245,
+        "longitude": 106.73288830951118,
     },
 ]
 
