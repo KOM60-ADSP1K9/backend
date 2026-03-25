@@ -29,7 +29,10 @@ from sqlalchemy.ext.asyncio import (
 
 from src.core.config import Settings
 from src.core.db import Base, get_async_db_session
-from src.infrastructure.tables import UserTable  # noqa: F401 – ensure model registered
+from src.infrastructure.tables import (  # noqa: F401 – ensure model registered
+    LokasiTable,
+    UserTable,
+)
 
 # Build a fresh Settings from the test env vars
 _test_settings = Settings()
