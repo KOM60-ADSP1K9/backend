@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    working_dir: /app
+
+    volumes:
+      - ./src:/app/src
+
+    # Maps the container port defined by PORT to the same host port
+    # If PORT is not set, it defaults to 9000
+    ports:
+      - "${PORT:-9000}:${PORT:-9000}"
+
+    # Load all application credentials/config from .env
+    env_file:
+      - .env
+
+    # Override host when app runs inside Docker network
+    environment:
+      DB_HOST: postgres
+
+    depends_on:
+      - postgres
+
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - __pycache__/
+            - .pytest_cache/
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+        - action: rebuild
+          path: ./Dockerfile
+
+  postgres:
+    image: postgres:17
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: {}
