@@ -28,6 +28,21 @@ LOKASI_SEED_DATA: list[dict[str, Any]] = [
         "latitude": -6.557179431578245,
         "longitude": 106.73288830951118,
     },
+    {
+        "name": "Auditorium FMIPA IPB",
+        "latitude": -6.557262682078246,
+        "longitude": 106.72515189963565,
+    },
+    {
+        "name": "Masjid Al-Hurriyyah",
+        "latitude": -6.555744697441244,
+        "longitude": 106.725408045655,
+    },
+    {
+        "name": "Perpustakaan IPB",
+        "latitude": -6.558878546805951,
+        "longitude": 106.7270456472907,
+    },
 ]
 
 
@@ -40,8 +55,17 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "role": UserRole.MAHASISWA,
             "nip": None,
             "nim": "G64190001",
-            "fakultas": "FMIPA",
+            "fakultas": "SSMI",
             "departemen": "Ilmu Komputer",
+        },
+        {
+            "email": "mahasiswa2@apps.ipb.ac.id",
+            "hashed_password": PASSWORD_HASHER.hash("Password123!"),
+            "role": UserRole.MAHASISWA,
+            "nip": None,
+            "nim": "G64190002",
+            "fakultas": "FTT",
+            "departemen": "Teknik Mesin",
         },
         {
             "email": "staff1@apps.ipb.ac.id",
