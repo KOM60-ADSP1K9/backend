@@ -4,6 +4,7 @@ import argparse
 import asyncio
 from collections.abc import Callable
 from typing import Any
+from uuid import UUID
 
 from src.core import db_seeder
 from src.domain.entity.user import UserRole
@@ -11,9 +12,11 @@ from src.infrastructure.services.bcrypt_password_service import BcryptPasswordSe
 from src.infrastructure.tables import LokasiTable, UserTable
 
 PASSWORD_HASHER = BcryptPasswordService()
+STAFF2_SUPERVISED_LOKASI_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 LOKASI_SEED_DATA: list[dict[str, Any]] = [
     {
+        "id": STAFF2_SUPERVISED_LOKASI_ID,
         "name": "FMIPA Kering IPB",
         "latitude": -6.55766998308493,
         "longitude": 106.73123692186275,
@@ -57,6 +60,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "nim": "G64190001",
             "fakultas": "SSMI",
             "departemen": "Ilmu Komputer",
+            "lokasi_id": None,
         },
         {
             "email": "mahasiswa2@apps.ipb.ac.id",
@@ -66,6 +70,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "nim": "G64190002",
             "fakultas": "FTT",
             "departemen": "Teknik Mesin",
+            "lokasi_id": None,
         },
         {
             "email": "staff1@apps.ipb.ac.id",
@@ -75,13 +80,24 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "nim": None,
             "fakultas": None,
             "departemen": None,
+            "lokasi_id": None,
+        },
+        {
+            "email": "staff2@apps.ipb.ac.id",
+            "hashed_password": PASSWORD_HASHER.hash("Password123!"),
+            "role": UserRole.STAFF,
+            "nip": "19801980198019801981",
+            "nim": None,
+            "fakultas": None,
+            "departemen": None,
+            "lokasi_id": STAFF2_SUPERVISED_LOKASI_ID,
         },
     ]
 
 
 SEED_PLAN: list[tuple[str, type[Any], Callable[[], list[dict[str, Any]]]]] = [
-    ("users", UserTable, build_user_seed_data),
     ("lokasi", LokasiTable, lambda: LOKASI_SEED_DATA),
+    ("users", UserTable, build_user_seed_data),
 ]
 
 
