@@ -13,7 +13,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, EmailStr
 from pyrate_limiter import Duration
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.db import get_async_db_session
 from src.features.auth.auth_dependencies import (
     get_login_usecase,
     get_me_usecase,
@@ -23,11 +25,13 @@ from src.features.auth.auth_dependencies import (
 from src.core.auth import get_current_user
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.core.rate_limiter import rate_limit_dependency
+from src.domain.entity.lokasi import Lokasi
 from src.domain.entity.user import User, UserRole
 from src.features.auth.usecase.login_usecase import LoginRequest, LoginUsecase
 from src.features.auth.usecase.me_usecase import MeUsecase
 from src.features.auth.usecase.register_usecase import RegisterRequest, RegisterUsecase
 from src.features.auth.usecase.verify_email_usecase import VerifyEmailUsecase
+from src.infrastructure.repositories.lokasi_repository import LokasiRepository
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -62,6 +66,15 @@ class LoginResponseDto(BaseModel):
     access_token: str
 
 
+class LokasiResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    latitude: float
+    longitude: float
+
+
 class MeResponseDto(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,9 +85,28 @@ class MeResponseDto(BaseModel):
     fakultas: str | None
     departemen: str | None
     nip: str | None
+    lokasi_id: UUID | None
+    lokasi: LokasiResponseDto | None
     email_verified_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
+
+
+def _to_me_response_dto(user: User, lokasi: Lokasi | None) -> MeResponseDto:
+    return MeResponseDto(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        nim=user.nim,
+        fakultas=user.fakultas,
+        departemen=user.departemen,
+        nip=user.nip,
+        lokasi_id=user.lokasi_id,
+        lokasi=LokasiResponseDto.model_validate(lokasi) if lokasi is not None else None,
+        email_verified_at=user.email_verified_at,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
 
 
 # ── Endpoints ──
@@ -154,11 +186,17 @@ async def verify_email(
 async def get_me(
     current_user: User = Depends(get_current_user),
     usecase: MeUsecase = Depends(get_me_usecase),
+    db: AsyncSession = Depends(get_async_db_session),
 ) -> HTTPDataResponse[MeResponseDto]:
     """Get the currently authenticated user's profile."""
     result = usecase.execute(current_user)
+
+    lokasi: Lokasi | None = None
+    if result.user.lokasi_id is not None:
+        lokasi = await LokasiRepository(db).find_by_id(result.user.lokasi_id)
+
     return HTTPDataResponse[MeResponseDto](
         status="success",
-        data=MeResponseDto.model_validate(result.user),
+        data=_to_me_response_dto(result.user, lokasi),
         message="Profile pengguna berhasil diambil",
     )

@@ -33,6 +33,7 @@ class User:
     fakultas: str | None = None
     departemen: str | None = None
     nip: str | None = None
+    lokasi_id: UUID | None = None
     email_verified_at: datetime.datetime | None = None
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
@@ -47,6 +48,7 @@ class User:
         fakultas: str | None = None,
         departemen: str | None = None,
         nip: str | None = None,
+        lokasi_id: UUID | None = None,
     ) -> Self:
         """Register a new user with domain validation."""
         _assert_email_domain(email)
@@ -61,6 +63,7 @@ class User:
             fakultas=fakultas,
             departemen=departemen,
             nip=nip,
+            lokasi_id=lokasi_id,
             email_verified_at=None,
             created_at=now,
             updated_at=now,
@@ -76,6 +79,7 @@ class User:
         fakultas: str | None = None,
         departemen: str | None = None,
         nip: str | None = None,
+        lokasi_id: UUID | None = None,
         email_verified_at: datetime.datetime | None = None,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
@@ -88,6 +92,7 @@ class User:
         self.fakultas = fakultas
         self.departemen = departemen
         self.nip = nip
+        self.lokasi_id = lokasi_id
         self.email_verified_at = email_verified_at
         self.created_at = created_at
         self.updated_at = updated_at
@@ -115,6 +120,7 @@ class Mahasiswa(User):
         fakultas: str | None = None,
         departemen: str | None = None,
         nip: str | None = None,
+        lokasi_id: UUID | None = None,
         email_verified_at: datetime.datetime | None = None,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
@@ -128,6 +134,7 @@ class Mahasiswa(User):
             fakultas=fakultas,
             departemen=departemen,
             nip=nip,
+            lokasi_id=lokasi_id,
             email_verified_at=email_verified_at,
             created_at=created_at,
             updated_at=updated_at,
@@ -153,6 +160,7 @@ class Mahasiswa(User):
             fakultas=fakultas,
             departemen=departemen,
             email_verified_at=None,
+            lokasi_id=None,
             created_at=now,
             updated_at=now,
         )
@@ -171,6 +179,7 @@ class Staff(User):
         nim: str | None = None,
         fakultas: str | None = None,
         departemen: str | None = None,
+        lokasi_id: UUID | None = None,
         email_verified_at: datetime.datetime | None = None,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
@@ -184,6 +193,7 @@ class Staff(User):
             fakultas=fakultas,
             departemen=departemen,
             nip=nip,
+            lokasi_id=lokasi_id,
             email_verified_at=email_verified_at,
             created_at=created_at,
             updated_at=updated_at,
@@ -195,6 +205,7 @@ class Staff(User):
         email: str,
         hashed_password: str,
         nip: str | None = None,
+        lokasi_id: UUID | None = None,
     ) -> Self:
         """Register a new staff user."""
         _assert_email_domain(email)
@@ -204,6 +215,7 @@ class Staff(User):
             email=email,
             hashed_password=hashed_password,
             nip=nip,
+            lokasi_id=lokasi_id,
             email_verified_at=None,
             created_at=now,
             updated_at=now,
