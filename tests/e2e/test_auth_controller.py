@@ -27,6 +27,7 @@ from tests.e2e.helpers import (
     seed_unverified_mahasiswa,
     seed_verified_mahasiswa,
     seed_verified_staff,
+    seed_verified_staff_with_supervised_lokasi,
 )
 
 # ════════════════════════════════════════════════════════════════════
@@ -309,13 +310,14 @@ class TestMe:
         assert body["data"]["nim"] == VALID_NIM
         assert body["data"]["fakultas"] == VALID_FAKULTAS
         assert body["data"]["departemen"] == VALID_DEPARTEMEN
+        assert body["data"]["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_me_staff_profile(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """A staff user should see STAFF role and nip in their profile."""
-        user = await seed_verified_staff(db_session)
+        user = await seed_verified_staff(db_session)  # staff didnt have lokasi
         headers = get_auth_header(user)
 
         resp = await client.get("/auth/me", headers=headers)
@@ -323,6 +325,27 @@ class TestMe:
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"]["role"] == "STAFF"
+        assert body["data"]["supervised_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_me_staff_with_supervised_lokasi(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Staff with lokasi_id should receive full lokasi details."""
+        user, lokasi = await seed_verified_staff_with_supervised_lokasi(db_session)
+        headers = get_auth_header(user)
+
+        resp = await client.get("/auth/me", headers=headers)
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["role"] == "STAFF"
+        assert data["supervised_at"] == {
+            "id": str(lokasi["id"]),
+            "name": lokasi["name"],
+            "latitude": lokasi["latitude"],
+            "longitude": lokasi["longitude"],
+        }
 
     @pytest.mark.asyncio
     async def test_me_no_token(self, client: AsyncClient):
@@ -361,3 +384,6 @@ class TestMe:
 
         assert me_resp.status_code == 200
         assert me_resp.json()["data"]["email"] == VALID_EMAIL
+        assert (
+            me_resp.json()["data"]["supervised_at"] is None
+        )  # mahasiswa should not have supervised_at lokasi

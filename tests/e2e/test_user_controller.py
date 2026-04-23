@@ -16,6 +16,7 @@ from tests.e2e.helpers import (
     get_auth_header,
     seed_verified_mahasiswa,
     seed_verified_staff,
+    seed_verified_staff_with_supervised_lokasi,
 )
 
 
@@ -109,11 +110,34 @@ class TestGetAllUsers:
             "fakultas",
             "departemen",
             "nip",
+            "supervised_at",
             "email_verified_at",
             "created_at",
             "updated_at",
         }
         assert set(user_data.keys()) == expected_keys
+        assert user_data["supervised_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_all_users_staff_with_supervised_lokasi(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Staff supervising a lokasi should expose full lokasi fields."""
+        staff, lokasi = await seed_verified_staff_with_supervised_lokasi(db_session)
+        headers = get_auth_header(staff)
+
+        resp = await client.get("/users", headers=headers)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        staff_data = next(u for u in body["data"] if u["email"] == STAFF_EMAIL)
+
+        assert staff_data["supervised_at"] == {
+            "id": str(lokasi["id"]),
+            "name": lokasi["name"],
+            "latitude": lokasi["latitude"],
+            "longitude": lokasi["longitude"],
+        }
 
 
 class TestGetAllUsersIsolation:
@@ -129,6 +153,12 @@ class TestGetAllUsersIsolation:
 
         resp = await client.get("/users", headers=headers)
         assert len(resp.json()["data"]) == 2
+
+        # mahasiswa, lokasi_id is none
+        mahasiswa_data = next(
+            u for u in resp.json()["data"] if u["email"] == VALID_EMAIL
+        )
+        assert mahasiswa_data["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_isolation_b(self, client: AsyncClient, db_session: AsyncSession):
