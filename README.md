@@ -112,6 +112,24 @@ Configuration is managed in [`src/core/config.py`](src/core/config.py).
    alembic upgrade head
    ```
 
+## Database Seeding (DEVELOPMENT ONLY)
+
+Seeder utilities are available for three operations:
+
+- `seed`: insert seed data without clearing existing rows
+- `reseed`: truncate first, then insert fresh seed data
+- `truncate`: remove all rows from the target table
+
+for best practice, use `reseed` to ensure a clean state before seeding new data.
+
+Use seeder
+
+```bash
+python seed.py seed
+python seed.py reseed
+python seed.py truncate
+```
+
 ## Running the Application
 
 **Development mode (auto reload)**:

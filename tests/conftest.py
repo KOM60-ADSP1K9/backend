@@ -10,15 +10,7 @@ import os
 import asyncio
 import pytest_asyncio
 
-# ── 1. Force .env.test BEFORE anything else touches `settings` ────────
 from dotenv import load_dotenv
-
-load_dotenv(
-    os.path.join(os.path.dirname(__file__), "..", ".env.test"),
-    override=True,
-)
-
-# ── 2. Now it's safe to import application code ──────────────────────
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -27,9 +19,27 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from src.core.config import Settings
-from src.core.db import Base, get_async_db_session
-from src.infrastructure.tables import UserTable  # noqa: F401 – ensure model registered
+# ── 1. Force .env.test BEFORE anything else touches `settings` ────────
+
+load_dotenv(
+    os.path.join(os.path.dirname(__file__), "..", ".env.test"),
+    override=True,
+)
+
+
+# ── 2. Now it's safe to import application code ──────────────────────
+def _load_app_modules():
+    from src.core.config import Settings
+    from src.core.db import Base, get_async_db_session
+    from src.infrastructure.tables import LokasiTable, UserTable
+
+    # Ensure model modules are imported so metadata is fully registered.
+    _ = (LokasiTable, UserTable)
+
+    return Settings, Base, get_async_db_session
+
+
+Settings, Base, get_async_db_session = _load_app_modules()
 
 # Build a fresh Settings from the test env vars
 _test_settings = Settings()
