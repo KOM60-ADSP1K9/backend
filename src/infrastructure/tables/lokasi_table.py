@@ -1,9 +1,10 @@
 """Table that maps lokasi data."""
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, String
+from sqlalchemy import DateTime, Float, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +26,17 @@ class LokasiTable(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     supervisors: Mapped[list["UserTable"]] = relationship(
         "UserTable",
@@ -37,4 +49,6 @@ class LokasiTable(Base):
             name=self.name,
             latitude=self.latitude,
             longitude=self.longitude,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
         )

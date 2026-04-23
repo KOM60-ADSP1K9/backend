@@ -3,6 +3,7 @@
 GET /locations – Get all locations (authenticated)
 """
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
@@ -26,6 +27,8 @@ class LokasiResponseDto(BaseModel):
     name: str
     latitude: float
     longitude: float
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 @lokasi_router.get("", response_model=HTTPDataResponse[list[LokasiResponseDto]])

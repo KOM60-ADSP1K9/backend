@@ -54,6 +54,12 @@ class TestGetAllLocations:
         names = [item["name"] for item in body["data"]]
         assert names == ["A lokasi", "Lokasi 1", "Lokasi 2"]
 
+        first_item = body["data"][0]
+        assert "created_at" in first_item
+        assert "updated_at" in first_item
+        assert first_item["created_at"] is not None
+        assert first_item["updated_at"] is not None
+
     @pytest.mark.asyncio
     async def test_get_all_locations_authenticated_staff_and_sorted_by_name(
         self, client: AsyncClient, db_session: AsyncSession
