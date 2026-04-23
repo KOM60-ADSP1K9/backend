@@ -85,8 +85,7 @@ class MeResponseDto(BaseModel):
     fakultas: str | None
     departemen: str | None
     nip: str | None
-    lokasi_id: UUID | None
-    lokasi: LokasiResponseDto | None
+    supervised_at: LokasiResponseDto | None
     email_verified_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
@@ -101,8 +100,9 @@ def _to_me_response_dto(user: User, lokasi: Lokasi | None) -> MeResponseDto:
         fakultas=user.fakultas,
         departemen=user.departemen,
         nip=user.nip,
-        lokasi_id=user.lokasi_id,
-        lokasi=LokasiResponseDto.model_validate(lokasi) if lokasi is not None else None,
+        supervised_at=(
+            LokasiResponseDto.model_validate(lokasi) if lokasi is not None else None
+        ),
         email_verified_at=user.email_verified_at,
         created_at=user.created_at,
         updated_at=user.updated_at,

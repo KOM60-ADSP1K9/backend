@@ -110,14 +110,13 @@ class TestGetAllUsers:
             "fakultas",
             "departemen",
             "nip",
-            "lokasi_id",
-            "lokasi",
+            "supervised_at",
             "email_verified_at",
             "created_at",
             "updated_at",
         }
         assert set(user_data.keys()) == expected_keys
-        assert user_data["lokasi"] is None
+        assert user_data["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_get_all_users_staff_with_supervised_lokasi(
@@ -133,8 +132,7 @@ class TestGetAllUsers:
         body = resp.json()
         staff_data = next(u for u in body["data"] if u["email"] == STAFF_EMAIL)
 
-        assert staff_data["lokasi_id"] == str(lokasi["id"])
-        assert staff_data["lokasi"] == {
+        assert staff_data["supervised_at"] == {
             "id": str(lokasi["id"]),
             "name": lokasi["name"],
             "latitude": lokasi["latitude"],
@@ -160,8 +158,7 @@ class TestGetAllUsersIsolation:
         mahasiswa_data = next(
             u for u in resp.json()["data"] if u["email"] == VALID_EMAIL
         )
-        assert mahasiswa_data["lokasi_id"] is None
-        assert mahasiswa_data["lokasi"] is None
+        assert mahasiswa_data["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_isolation_b(self, client: AsyncClient, db_session: AsyncSession):

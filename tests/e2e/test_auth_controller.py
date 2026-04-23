@@ -310,7 +310,7 @@ class TestMe:
         assert body["data"]["nim"] == VALID_NIM
         assert body["data"]["fakultas"] == VALID_FAKULTAS
         assert body["data"]["departemen"] == VALID_DEPARTEMEN
-        assert body["data"]["lokasi"] is None
+        assert body["data"]["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_me_staff_profile(
@@ -325,7 +325,7 @@ class TestMe:
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"]["role"] == "STAFF"
-        assert body["data"]["lokasi"] is None
+        assert body["data"]["supervised_at"] is None
 
     @pytest.mark.asyncio
     async def test_me_staff_with_supervised_lokasi(
@@ -340,8 +340,7 @@ class TestMe:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["role"] == "STAFF"
-        assert data["lokasi_id"] == str(lokasi["id"])
-        assert data["lokasi"] == {
+        assert data["supervised_at"] == {
             "id": str(lokasi["id"]),
             "name": lokasi["name"],
             "latitude": lokasi["latitude"],
@@ -386,5 +385,5 @@ class TestMe:
         assert me_resp.status_code == 200
         assert me_resp.json()["data"]["email"] == VALID_EMAIL
         assert (
-            me_resp.json()["data"]["lokasi"] is None
-        )  # mahasiswa should not have lokasi
+            me_resp.json()["data"]["supervised_at"] is None
+        )  # mahasiswa should not have supervised_at lokasi
