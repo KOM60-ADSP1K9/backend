@@ -45,7 +45,7 @@ class CreateLostReportResponseDto(BaseModel):
 async def create_lost_report(
     photo: UploadFile = File(...),
     lost_at_location_id: UUID = Form(...),
-    lost_at_date: date | None = Form(None),
+    lost_at_date: date = Form(...),
     _current_user: User = Depends(require_role(UserRole.MAHASISWA)),
     usecase: CreateLostReportUsecase = Depends(get_create_lost_report_usecase),
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:

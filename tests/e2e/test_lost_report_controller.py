@@ -141,3 +141,39 @@ class TestCreateLostReport:
 
         saved_reports = list(await LaporanRepository(db_session).findAll())
         assert saved_reports == []
+
+    @pytest.mark.asyncio
+    async def test_should_fail_when_date_is_missing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Omitting lost_at_date should fail validation before usecase execution."""
+        mahasiswa = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(mahasiswa)
+
+        lokasi = LokasiTable(
+            name="Gedung B",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        resp = await client.post(
+            "/lost-reports",
+            headers=headers,
+            data={"lost_at_location_id": str(lokasi.id)},
+            files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},
+        )
+
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Validation failed"
+        assert any(
+            error["field"] == "body.lost_at_date"
+            for error in body["errors"]
+            if isinstance(error, dict)
+        )
+
+        saved_reports = list(await LaporanRepository(db_session).findAll())
+        assert saved_reports == []
