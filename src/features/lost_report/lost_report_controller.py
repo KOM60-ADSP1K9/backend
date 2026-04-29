@@ -50,6 +50,18 @@ async def create_lost_report(
     usecase: CreateLostReportUsecase = Depends(get_create_lost_report_usecase),
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:
     """Create a new lost report. Only mahasiswa can access this endpoint."""
+    if photo.content_type not in ["image/jpeg", "image/png"]:
+        return HTTPDataResponse[CreateLostReportResponseDto](
+            status="error",
+            message="Invalid photo format. Only JPEG and PNG are allowed.",
+        )
+
+    if photo.size > 5 * 1024 * 1024:  # 5 MB limit
+        return HTTPDataResponse[CreateLostReportResponseDto](
+            status="error",
+            message="Photo size exceeds the 5 MB limit.",
+        )
+
     result = await usecase.execute(
         CreateLostReportRequest(
             photo_content=await photo.read(),
