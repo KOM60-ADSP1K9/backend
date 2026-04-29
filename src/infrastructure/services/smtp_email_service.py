@@ -5,7 +5,7 @@ SMTP email service implementation (fastapi-mail).
 import logging
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-from pydantic import NameEmail, SecretStr
+from pydantic import SecretStr
 
 from src.core.config import settings
 from src.application.i_email_service import IEmailService
@@ -40,7 +40,7 @@ class SmtpEmailService(IEmailService):
 
         message = MessageSchema(
             subject="Verify Alamat Email Anda",
-            recipients=[NameEmail(name="", email=to_email)],
+            recipients=[to_email],
             body=html_body,
             subtype=MessageType.html,
         )
