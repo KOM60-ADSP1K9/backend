@@ -43,7 +43,7 @@ class TestRegister:
         "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
-    async def test_register_success(
+    async def test_should_register_successfully(
         self, mock_email: AsyncMock, client: AsyncClient, db_session: AsyncSession
     ):
         """A valid registration should return 201 with user data."""
@@ -73,7 +73,7 @@ class TestRegister:
         "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
-    async def test_register_duplicate_email(
+    async def test_should_not_register_with_duplicate_email(
         self, mock_email: AsyncMock, client: AsyncClient, db_session: AsyncSession
     ):
         """Registering with an already-taken email should return 409."""
@@ -94,7 +94,9 @@ class TestRegister:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_register_invalid_email_domain(self, client: AsyncClient):
+    async def test_should_not_register_with_invalid_email_domain(
+        self, client: AsyncClient
+    ):
         """Only @apps.ipb.ac.id emails are allowed."""
         resp = await client.post(
             "/auth/register",
@@ -111,7 +113,9 @@ class TestRegister:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_register_missing_fields(self, client: AsyncClient):
+    async def test_should_not_register_when_fields_are_missing(
+        self, client: AsyncClient
+    ):
         """Missing required fields should return 422 validation error."""
         resp = await client.post(
             "/auth/register",
@@ -122,7 +126,9 @@ class TestRegister:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_register_invalid_email_format(self, client: AsyncClient):
+    async def test_should_not_register_with_invalid_email_format(
+        self, client: AsyncClient
+    ):
         """Malformed email should return 422."""
         resp = await client.post(
             "/auth/register",
@@ -147,7 +153,9 @@ class TestLogin:
     """Login endpoint tests."""
 
     @pytest.mark.asyncio
-    async def test_login_success(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_should_login_successfully(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
         """A verified user should be able to login and receive a token."""
         await seed_verified_mahasiswa(db_session)
 
@@ -164,7 +172,7 @@ class TestLogin:
         assert len(body["data"]["access_token"]) > 0
 
     @pytest.mark.asyncio
-    async def test_login_wrong_password(
+    async def test_should_not_login_with_wrong_password(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Wrong password should return 401."""
@@ -179,7 +187,7 @@ class TestLogin:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_login_nonexistent_user(self, client: AsyncClient):
+    async def test_should_not_login_with_nonexistent_user(self, client: AsyncClient):
         """Login with a non-existent email should return 401."""
         resp = await client.post(
             "/auth/login",
@@ -189,7 +197,7 @@ class TestLogin:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_login_unverified_email(
+    async def test_should_not_login_with_unverified_email(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """An unverified user should not be able to login."""
@@ -204,14 +212,14 @@ class TestLogin:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_login_missing_fields(self, client: AsyncClient):
+    async def test_should_not_login_when_fields_are_missing(self, client: AsyncClient):
         """Missing fields should return 422."""
         resp = await client.post("/auth/login", json={"email": VALID_EMAIL})
 
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_login_staff_success(
+    async def test_staff_should_login_successfully(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Staff users should also be able to login."""
@@ -235,7 +243,7 @@ class TestVerifyEmail:
     """Email verification endpoint tests."""
 
     @pytest.mark.asyncio
-    async def test_verify_email_success(
+    async def test_should_verify_email_successfully(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Valid verification token should verify the user's email."""
@@ -256,14 +264,16 @@ class TestVerifyEmail:
         )
 
     @pytest.mark.asyncio
-    async def test_verify_email_invalid_token(self, client: AsyncClient):
+    async def test_should_not_verify_email_with_invalid_token(
+        self, client: AsyncClient
+    ):
         """An invalid token should return 401."""
         resp = await client.get("/auth/verify-email?token=invalid-token-here")
 
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_verify_email_already_verified(
+    async def test_should_not_verify_email_when_already_verified(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Verifying an already-verified user should return 400."""
@@ -279,7 +289,9 @@ class TestVerifyEmail:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_verify_email_missing_token(self, client: AsyncClient):
+    async def test_should_not_verify_email_when_token_is_missing(
+        self, client: AsyncClient
+    ):
         """Missing token query param should return 422."""
         resp = await client.get("/auth/verify-email")
 
@@ -295,7 +307,9 @@ class TestMe:
     """Current user profile endpoint tests."""
 
     @pytest.mark.asyncio
-    async def test_me_success(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_should_return_my_profile(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
         """Authenticated user should get their profile."""
         user = await seed_verified_mahasiswa(db_session)
         headers = get_auth_header(user)
@@ -313,7 +327,7 @@ class TestMe:
         assert body["data"]["supervised_at"] is None
 
     @pytest.mark.asyncio
-    async def test_me_staff_profile(
+    async def test_staff_should_return_profile_without_supervised_location(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """A staff user should see STAFF role and nip in their profile."""
@@ -328,7 +342,7 @@ class TestMe:
         assert body["data"]["supervised_at"] is None
 
     @pytest.mark.asyncio
-    async def test_me_staff_with_supervised_lokasi(
+    async def test_staff_should_return_profile_with_supervised_location(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Staff with lokasi_id should receive full lokasi details."""
@@ -348,14 +362,14 @@ class TestMe:
         }
 
     @pytest.mark.asyncio
-    async def test_me_no_token(self, client: AsyncClient):
+    async def test_should_not_access_me_without_token(self, client: AsyncClient):
         """Request without auth header should be rejected."""
         resp = await client.get("/auth/me")
 
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_me_invalid_token(self, client: AsyncClient):
+    async def test_should_not_access_me_with_invalid_token(self, client: AsyncClient):
         """Request with a bad token should return 401."""
         resp = await client.get(
             "/auth/me",
@@ -365,7 +379,7 @@ class TestMe:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_me_after_login_flow(
+    async def test_should_return_profile_after_login(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Full flow: seed → login → /me should work end-to-end."""

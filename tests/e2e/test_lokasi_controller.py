@@ -34,7 +34,7 @@ class TestGetAllLocations:
     """GET /locations – authenticated endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_authenticated_and_sorted_by_name(
+    async def test_should_return_all_locations_sorted_for_authenticated_user(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Authenticated user should receive all stored locations."""
@@ -61,7 +61,7 @@ class TestGetAllLocations:
         assert first_item["updated_at"] is not None
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_authenticated_staff_and_sorted_by_name(
+    async def test_staff_should_return_all_locations_sorted_by_name(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Authenticated user (staff) should receive all stored locations."""
@@ -82,10 +82,10 @@ class TestGetAllLocations:
         assert names == ["A lokasi", "Lokasi 1", "Lokasi 2"]
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_unverified_user(
+    async def test_should_return_all_locations_for_unverified_user(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Unverified user should not be able to access locations."""
+        """Unverified user should still receive the location list."""
         user = await seed_unverified_mahasiswa(db_session)
         headers = get_auth_header(user)
         await seed_locations(db_session)
@@ -103,7 +103,7 @@ class TestGetAllLocations:
         assert names == ["A lokasi", "Lokasi 1", "Lokasi 2"]
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_no_auth(self, client: AsyncClient):
+    async def test_should_not_return_locations_without_auth(self, client: AsyncClient):
         """Request without token must be rejected."""
         resp = await client.get("/locations")
 
@@ -111,7 +111,9 @@ class TestGetAllLocations:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_invalid_token(self, client: AsyncClient):
+    async def test_should_not_return_locations_with_invalid_token(
+        self, client: AsyncClient
+    ):
         """Invalid token should return unauthorized."""
         resp = await client.get(
             "/locations",
@@ -122,7 +124,7 @@ class TestGetAllLocations:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_get_all_locations_empty(
+    async def test_should_return_empty_location_list_when_none_exist(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """If no locations exist, endpoint returns an empty list."""

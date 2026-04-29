@@ -24,7 +24,7 @@ class TestGetAllUsers:
     """GET /users – Staff-only endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_all_users_as_staff(
+    async def test_staff_should_return_all_users(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Staff should receive a list of all users."""
@@ -45,7 +45,7 @@ class TestGetAllUsers:
         assert VALID_EMAIL in emails
 
     @pytest.mark.asyncio
-    async def test_get_all_users_as_mahasiswa(
+    async def test_should_forbid_mahasiswa_from_listing_users(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Mahasiswa should be forbidden from listing users."""
@@ -58,14 +58,14 @@ class TestGetAllUsers:
         assert resp.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_get_all_users_no_auth(self, client: AsyncClient):
+    async def test_should_not_list_users_without_auth(self, client: AsyncClient):
         """Unauthenticated request should be rejected."""
         resp = await client.get("/users")
 
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_all_users_invalid_token(self, client: AsyncClient):
+    async def test_should_not_list_users_with_invalid_token(self, client: AsyncClient):
         """Invalid token should return 401."""
         resp = await client.get(
             "/users",
@@ -75,7 +75,7 @@ class TestGetAllUsers:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_all_users_empty(
+    async def test_should_return_only_requesting_staff_when_alone(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """When only the requesting staff exists, list should contain 1 user."""
@@ -90,7 +90,7 @@ class TestGetAllUsers:
         assert body["data"][0]["email"] == STAFF_EMAIL
 
     @pytest.mark.asyncio
-    async def test_get_all_users_response_shape(
+    async def test_should_return_expected_user_shape(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Verify the shape of each user object in the response."""
@@ -119,7 +119,7 @@ class TestGetAllUsers:
         assert user_data["supervised_at"] is None
 
     @pytest.mark.asyncio
-    async def test_get_all_users_staff_with_supervised_lokasi(
+    async def test_staff_should_include_supervised_location_in_user_list(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Staff supervising a lokasi should expose full lokasi fields."""
@@ -145,7 +145,9 @@ class TestGetAllUsersIsolation:
     does not leak into another."""
 
     @pytest.mark.asyncio
-    async def test_isolation_a(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_should_return_two_users_in_isolation(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
         """Seed a mahasiswa and staff, expect exactly 2 users."""
         staff = await seed_verified_staff(db_session)
         await seed_verified_mahasiswa(db_session)
@@ -161,7 +163,9 @@ class TestGetAllUsersIsolation:
         assert mahasiswa_data["supervised_at"] is None
 
     @pytest.mark.asyncio
-    async def test_isolation_b(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_should_return_one_user_in_isolation(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
         """Seed only a staff user, expect exactly 1 user
         (data from test_isolation_a must not be visible)."""
         staff = await seed_verified_staff(db_session)
