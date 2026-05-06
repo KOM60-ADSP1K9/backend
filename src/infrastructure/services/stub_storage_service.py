@@ -7,4 +7,4 @@ class StubStorageService(IStorageService):
     """Temporary storage implementation that returns a deterministic path."""
 
     async def upload_photo(self, content: bytes, filename: str) -> str:
-        return f"https://placehold.co/600x400?text=stub://lost-reports/{filename}"
+        return f"https://placehold.co/600x400?text=stub://lost-reports/{''.join(filename.split())}"

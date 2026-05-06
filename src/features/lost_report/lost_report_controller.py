@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, ConfigDict
 
+from src.core.exceptions import BadRequestException, RequestTooLargeException
 from src.core.auth import require_role
 from src.core.http import HTTPDataResponse
 from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
@@ -51,15 +52,13 @@ async def create_lost_report(
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:
     """Create a new lost report. Only mahasiswa can access this endpoint."""
     if photo.content_type not in Laporan.ALLOWED_PHOTO_TYPES:
-        return HTTPDataResponse[CreateLostReportResponseDto](
-            status="error",
-            message="Invalid photo format. Only JPEG and PNG are allowed.",
+        raise BadRequestException(
+            f"Invalid photo type. Allowed types: {', '.join(Laporan.ALLOWED_PHOTO_TYPES)}"
         )
 
     if photo.size > Laporan.MAX_PHOTO_SIZE_MB * 1024 * 1024:  # convert MB to bytes
-        return HTTPDataResponse[CreateLostReportResponseDto](
-            status="error",
-            message=f"Photo size exceeds the {Laporan.MAX_PHOTO_SIZE_MB} MB limit.",
+        raise RequestTooLargeException(
+            f"Photo exceeds maximum size of {Laporan.MAX_PHOTO_SIZE_MB} MB"
         )
 
     result = await usecase.execute(
