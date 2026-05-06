@@ -57,7 +57,10 @@ class TestCreateLostReport:
         assert body["message"] == "Lost report created successfully"
         assert body["data"]["type"] == "hilang"
         assert body["data"]["status"] == "draft"
-        assert body["data"]["photo"] == "stub://lost-reports/lost-card.jpg"
+        assert (
+            body["data"]["photo"]
+            == "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
+        )
         assert body["data"]["lost_at_location_id"] == str(lokasi.id)
         assert body["data"]["lost_at_date"] == "2026-04-29"
 
@@ -66,7 +69,10 @@ class TestCreateLostReport:
         saved_report = saved_reports[0]
         assert saved_report.type is LaporanType.HILANG
         assert saved_report.status is LaporanStatus.DRAFT
-        assert saved_report.photo == "stub://lost-reports/lost-card.jpg"
+        assert (
+            saved_report.photo
+            == "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
+        )
         assert saved_report.user_id == mahasiswa.id
         assert saved_report.lost_at_date == date(2026, 4, 29)
 
