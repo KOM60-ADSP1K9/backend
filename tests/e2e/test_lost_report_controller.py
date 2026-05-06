@@ -58,7 +58,7 @@ class TestCreateLostReport:
         assert body["status"] == "success"
         assert body["message"] == "Lost report created successfully"
         assert body["data"]["type"] == "hilang"
-        assert body["data"]["status"] == "draft"
+        assert body["data"]["status"] == "active"
         assert body["data"]["barang"]["name"] == "KTP"
         assert body["data"]["barang"]["description"] == "Kartu tanda penduduk"
         assert body["data"]["barang"]["photo"] == (
@@ -81,7 +81,7 @@ class TestCreateLostReport:
         assert len(saved_reports) == 1
         saved_report = saved_reports[0]
         assert saved_report.type is LaporanType.HILANG
-        assert saved_report.status is LaporanStatus.DRAFT
+        assert saved_report.status is LaporanStatus.ACTIVE
         assert saved_report.barang is not None
         assert saved_report.barang.name == "KTP"
         assert saved_report.barang.description == "Kartu tanda penduduk"

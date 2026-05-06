@@ -8,7 +8,7 @@ from src.core.exceptions import NotFoundException
 from src.domain.entity.barang import Barang
 from src.domain.entity.i_lokasi_repository import ILokasiRepository
 from src.domain.entity.i_laporan_repository import ILaporanRepository
-from src.domain.entity.laporan import Laporan, LaporanTemuan
+from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanTemuan
 
 
 class CreateFoundReportRequest:
@@ -72,6 +72,7 @@ class CreateFoundReportUsecase:
             found_at_location_id=request.found_at_location_id,
             found_at_date=request.found_at_date,
             user_id=request.user_id,
+            status=LaporanStatus.ACTIVE,
         )
         laporan.addBarang(barang)
 

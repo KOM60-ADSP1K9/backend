@@ -57,7 +57,7 @@ class TestCreateFoundReport:
         assert body["status"] == "success"
         assert body["message"] == "Found report created successfully"
         assert body["data"]["type"] == "temuan"
-        assert body["data"]["status"] == "draft"
+        assert body["data"]["status"] == "active"
         assert body["data"]["found_at_location_id"] == str(lokasi.id)
         assert body["data"]["found_at_date"] == "2026-04-30"
         assert body["data"]["barang"]["name"] == "Dompet"
@@ -70,7 +70,7 @@ class TestCreateFoundReport:
         assert len(saved_reports) == 1
         saved_report = saved_reports[0]
         assert saved_report.type is LaporanType.TEMUAN
-        assert saved_report.status is LaporanStatus.DRAFT
+        assert saved_report.status is LaporanStatus.ACTIVE
         assert saved_report.found_at_location_id == lokasi.id
         assert saved_report.found_at_date == date(2026, 4, 30)
         assert saved_report.barang is not None
