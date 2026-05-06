@@ -12,11 +12,9 @@ from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse
 from src.domain.entity.laporan import LaporanStatus, LaporanType
 from src.domain.entity.user import User
-from .usecase.get_all_laporan_usecase import (
-    GetAllLaporanUsecase,
-)
-from .usecase.get_my_laporan_usecase import (
-    GetMyLaporanUsecase,
+from src.features.homepage.homepage_dependencies import (
+    get_all_laporan_usecase,
+    get_my_laporan_usecase,
 )
 from src.infrastructure.tables.laporan_table import LaporanTable
 
@@ -106,9 +104,9 @@ async def get_all_laporan(
         le=100,
         description="Maximum number of laporan to return",
     ),
+    usecase=Depends(get_all_laporan_usecase),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
     """Get laporan visible on the homepage for any authenticated user."""
-    usecase = GetAllLaporanUsecase(db=db)
     result = await usecase.execute(
         laporan_type=laporan_type,
         status=status,
@@ -149,9 +147,9 @@ async def get_my_laporan(
         le=100,
         description="Maximum number of laporan to return",
     ),
+    usecase=Depends(get_my_laporan_usecase),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
     """Get laporan created by the authenticated user."""
-    usecase = GetMyLaporanUsecase(db=db)
     result = await usecase.execute(
         user_id=current_user.id,
         laporan_type=laporan_type,
