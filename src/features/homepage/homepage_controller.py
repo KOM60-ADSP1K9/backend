@@ -15,6 +15,9 @@ from src.domain.entity.user import User
 from src.features.homepage.usecase.get_all_laporan_usecase import (
     GetAllLaporanUsecase,
 )
+from src.features.homepage.usecase.get_my_laporan_usecase import (
+    GetMyLaporanUsecase,
+)
 
 homepage_router = APIRouter(prefix="/homepage", tags=["homepage"])
 
@@ -92,6 +95,50 @@ async def get_all_laporan(
     """Get laporan visible on the homepage for any authenticated user."""
     usecase = GetAllLaporanUsecase(db=db)
     result = await usecase.execute(
+        laporan_type=laporan_type,
+        status=status,
+        page=page,
+        limit=limit,
+    )
+
+    return HTTPDataResponse[list[HomepageLaporanResponseDto]](
+        status="success",
+        data=[
+            _to_homepage_laporan_response_dto(laporan, current_user.id)
+            for laporan in result.laporan
+        ],
+        message="Laporan fetched successfully",
+    )
+
+
+@homepage_router.get(
+    "/laporan/me",
+    response_model=HTTPDataResponse[list[HomepageLaporanResponseDto]],
+)
+async def get_my_laporan(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db_session),
+    laporan_type: LaporanType | None = Query(
+        None,
+        alias="type",
+        description="Filter laporan by type",
+    ),
+    status: LaporanStatus | None = Query(
+        None,
+        description="Filter laporan by status",
+    ),
+    page: int = Query(1, ge=1, description="Page number to fetch"),
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="Maximum number of laporan to return",
+    ),
+) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
+    """Get laporan created by the authenticated user."""
+    usecase = GetMyLaporanUsecase(db=db)
+    result = await usecase.execute(
+        user_id=current_user.id,
         laporan_type=laporan_type,
         status=status,
         page=page,

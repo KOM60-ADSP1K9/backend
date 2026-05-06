@@ -271,6 +271,202 @@ class TestGetAllHomepageLaporan:
         assert combined_body["data"][0]["status"] == "active"
 
     @pytest.mark.asyncio
+    async def test_should_return_only_current_users_reports_on_my_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """My laporan endpoint should only return laporan created by the caller."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-my@apps.ipb.ac.id",
+            nim="G6401212005",
+        )
+        other_user = await seed_verified_user(
+            db_session,
+            email="home-my-other@apps.ipb.ac.id",
+            nim="G6401212006",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung My",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+
+        mine = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        mine.addBarang(
+            Barang.New(
+                name="KTP",
+                description="Kartu tanda penduduk",
+                photo="stub://lost-reports/mine.jpg",
+            )
+        )
+        await repository.save(mine)
+
+        mine_two = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 4, 30),
+            user_id=current_user.id,
+        )
+        mine_two.addBarang(
+            Barang.New(
+                name="Tas",
+                description="Tas laptop hitam",
+                photo="stub://found-reports/mine-two.jpg",
+            )
+        )
+        await repository.save(mine_two)
+
+        theirs = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 30),
+            user_id=other_user.id,
+        )
+        theirs.addBarang(
+            Barang.New(
+                name="Dompet",
+                description="Dompet kulit cokelat",
+                photo="stub://lost-reports/theirs.jpg",
+            )
+        )
+        await repository.save(theirs)
+
+        resp = await client.get("/homepage/laporan/me", headers=headers)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan fetched successfully"
+        assert len(body["data"]) == 2
+        assert all(item["is_owned"] for item in body["data"])
+        assert {item["barang"]["name"] for item in body["data"]} == {
+            "KTP",
+            "Tas",
+        }
+        assert {item["barang"]["name"] for item in body["data"]} != {"Dompet"}
+
+    @pytest.mark.asyncio
+    async def test_should_filter_and_page_my_laporan_with_query_params(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """My laporan endpoint should support type, status, page, and limit."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-my-query@apps.ipb.ac.id",
+            nim="G6401212007",
+        )
+        other_user = await seed_verified_user(
+            db_session,
+            email="home-my-query-other@apps.ipb.ac.id",
+            nim="G6401212008",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung My Query",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+        base_time = datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc)
+
+        newest = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        newest.status = LaporanStatus.ACTIVE
+        newest.created_at = base_time + timedelta(minutes=2)
+        newest.updated_at = base_time + timedelta(minutes=2)
+        newest.addBarang(
+            Barang.New(
+                name="KTP",
+                description="Kartu tanda penduduk",
+                photo="stub://lost-reports/my-query-newest.jpg",
+            )
+        )
+        await repository.save(newest)
+
+        older = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 28),
+            user_id=current_user.id,
+        )
+        older.status = LaporanStatus.ACTIVE
+        older.created_at = base_time + timedelta(minutes=1)
+        older.updated_at = base_time + timedelta(minutes=1)
+        older.addBarang(
+            Barang.New(
+                name="Jaket",
+                description="Jaket abu-abu",
+                photo="stub://lost-reports/my-query-older.jpg",
+            )
+        )
+        await repository.save(older)
+
+        other = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 30),
+            user_id=other_user.id,
+        )
+        other.status = LaporanStatus.ACTIVE
+        other.created_at = base_time + timedelta(minutes=3)
+        other.updated_at = base_time + timedelta(minutes=3)
+        other.addBarang(
+            Barang.New(
+                name="Dompet",
+                description="Dompet kulit cokelat",
+                photo="stub://lost-reports/other-query.jpg",
+            )
+        )
+        await repository.save(other)
+
+        page_one_resp = await client.get(
+            "/homepage/laporan/me",
+            headers=headers,
+            params={"type": "hilang", "status": "active", "page": 1, "limit": 1},
+        )
+        assert page_one_resp.status_code == 200
+        page_one_body = page_one_resp.json()
+        assert len(page_one_body["data"]) == 1
+        assert page_one_body["data"][0]["barang"]["name"] == "KTP"
+        assert page_one_body["data"][0]["type"] == "hilang"
+        assert page_one_body["data"][0]["status"] == "active"
+        assert page_one_body["data"][0]["is_owned"] is True
+
+        page_two_resp = await client.get(
+            "/homepage/laporan/me",
+            headers=headers,
+            params={"type": "hilang", "status": "active", "page": 2, "limit": 1},
+        )
+        assert page_two_resp.status_code == 200
+        page_two_body = page_two_resp.json()
+        assert len(page_two_body["data"]) == 1
+        assert page_two_body["data"][0]["barang"]["name"] == "Jaket"
+        assert page_two_body["data"][0]["type"] == "hilang"
+        assert page_two_body["data"][0]["status"] == "active"
+        assert page_two_body["data"][0]["is_owned"] is True
+
+        page_three_resp = await client.get(
+            "/homepage/laporan/me",
+            headers=headers,
+            params={"type": "hilang", "status": "active", "page": 3, "limit": 1},
+        )
+        assert page_three_resp.status_code == 200
+        assert page_three_resp.json()["data"] == []
+
+    @pytest.mark.asyncio
     async def test_should_page_reports_with_page_and_limit(
         self, client: AsyncClient, db_session: AsyncSession
     ):
