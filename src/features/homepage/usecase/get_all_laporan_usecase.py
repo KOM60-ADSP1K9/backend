@@ -25,9 +25,18 @@ class GetAllLaporanUsecase:
         self,
         laporan_type: LaporanType | None = None,
         status: LaporanStatus | None = None,
+        page: int = 1,
+        limit: int = 20,
     ) -> GetAllLaporanResult:
-        """Return laporan in the system, optionally filtered by type and status."""
-        statement = select(LaporanTable).options(selectinload(LaporanTable.barang))
+        """Return laporan in the system, optionally filtered and paginated."""
+        offset = (page - 1) * limit
+        statement = (
+            select(LaporanTable)
+            .options(selectinload(LaporanTable.barang))
+            .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
 
         if laporan_type is not None:
             statement = statement.where(LaporanTable.type == laporan_type)

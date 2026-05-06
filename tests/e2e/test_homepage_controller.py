@@ -5,7 +5,7 @@ Endpoints under test
 GET /homepage/laporan – Get all laporan (authenticated)
 """
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -269,3 +269,85 @@ class TestGetAllHomepageLaporan:
         assert len(combined_body["data"]) == 1
         assert combined_body["data"][0]["type"] == "hilang"
         assert combined_body["data"][0]["status"] == "active"
+
+    @pytest.mark.asyncio
+    async def test_should_page_reports_with_page_and_limit(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Homepage should skip earlier rows when page is advanced."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-page@apps.ipb.ac.id",
+            nim="G6401212005",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung Page",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+        base_time = datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc)
+
+        oldest = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 27),
+            user_id=current_user.id,
+        )
+        oldest.created_at = base_time
+        oldest.updated_at = base_time
+        oldest.addBarang(
+            Barang.New(
+                name="Kunci",
+                description="Kunci kos",
+                photo="stub://lost-reports/oldest.jpg",
+            )
+        )
+        await repository.save(oldest)
+
+        middle = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 4, 28),
+            user_id=current_user.id,
+        )
+        middle.created_at = base_time + timedelta(minutes=1)
+        middle.updated_at = base_time + timedelta(minutes=1)
+        middle.addBarang(
+            Barang.New(
+                name="Dompet",
+                description="Dompet hitam",
+                photo="stub://found-reports/middle.jpg",
+            )
+        )
+        await repository.save(middle)
+
+        newest = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        newest.created_at = base_time + timedelta(minutes=2)
+        newest.updated_at = base_time + timedelta(minutes=2)
+        newest.addBarang(
+            Barang.New(
+                name="Jaket",
+                description="Jaket abu-abu",
+                photo="stub://lost-reports/newest.jpg",
+            )
+        )
+        await repository.save(newest)
+
+        resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"limit": 1, "page": 2},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["data"]) == 1
+        assert body["data"][0]["barang"]["name"] == "Dompet"

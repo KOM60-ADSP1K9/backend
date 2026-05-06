@@ -81,10 +81,22 @@ async def get_all_laporan(
         None,
         description="Filter laporan by status",
     ),
+    page: int = Query(1, ge=1, description="Page number to fetch"),
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="Maximum number of laporan to return",
+    ),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
     """Get laporan visible on the homepage for any authenticated user."""
     usecase = GetAllLaporanUsecase(db=db)
-    result = await usecase.execute(laporan_type=laporan_type, status=status)
+    result = await usecase.execute(
+        laporan_type=laporan_type,
+        status=status,
+        page=page,
+        limit=limit,
+    )
 
     return HTTPDataResponse[list[HomepageLaporanResponseDto]](
         status="success",
