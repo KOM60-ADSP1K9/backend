@@ -72,6 +72,7 @@ class TestGetAllHomepageLaporan:
             lost_at_date=date(2026, 4, 29),
             user_id=current_user.id,
         )
+        mine.status = LaporanStatus.ACTIVE
         mine.addBarang(
             Barang.New(
                 name="KTP",
@@ -86,6 +87,7 @@ class TestGetAllHomepageLaporan:
             found_at_date=date(2026, 4, 30),
             user_id=current_user.id,
         )
+        found_by_me.status = LaporanStatus.ACTIVE
         found_by_me.addBarang(
             Barang.New(
                 name="Tas",
@@ -100,6 +102,7 @@ class TestGetAllHomepageLaporan:
             lost_at_date=date(2026, 4, 30),
             user_id=other_user.id,
         )
+        theirs.status = LaporanStatus.ACTIVE
         theirs.addBarang(
             Barang.New(
                 name="Dompet",
@@ -109,6 +112,20 @@ class TestGetAllHomepageLaporan:
         )
         await repository.save(theirs)
 
+        hidden_draft = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 4, 30),
+            user_id=other_user.id,
+        )
+        hidden_draft.addBarang(
+            Barang.New(
+                name="Topi",
+                description="Topi hitam",
+                photo="stub://found-reports/draft-hidden.jpg",
+            )
+        )
+        await repository.save(hidden_draft)
+
         resp = await client.get("/homepage/laporan", headers=headers)
 
         assert resp.status_code == 200
@@ -117,6 +134,7 @@ class TestGetAllHomepageLaporan:
         assert body["message"] == "Laporan fetched successfully"
         assert isinstance(body["data"], list)
         assert len(body["data"]) == 3
+        assert all(item["status"] != "draft" for item in body["data"])
 
         own_reports = [item for item in body["data"] if item["is_owned"]]
         foreign_reports = [item for item in body["data"] if not item["is_owned"]]
@@ -129,14 +147,15 @@ class TestGetAllHomepageLaporan:
 
         assert lost_report["barang"]["name"] == "KTP"
         assert lost_report["barang"]["photo"] == "stub://lost-reports/mine.jpg"
-        assert lost_report["status"] == "draft"
+        assert lost_report["status"] == "active"
 
         assert any(item["type"] == "temuan" for item in own_reports)
         assert found_report["barang"]["name"] == "Tas"
         assert found_report["barang"]["photo"] == "stub://found-reports/mine-found.jpg"
-        assert found_report["status"] == "draft"
+        assert found_report["status"] == "active"
         assert foreign_reports[0]["barang"]["name"] == "Dompet"
         assert foreign_reports[0]["barang"]["photo"] == "stub://lost-reports/theirs.jpg"
+        assert foreign_reports[0]["status"] == "active"
 
         expected_keys = {
             "id",
@@ -236,6 +255,7 @@ class TestGetAllHomepageLaporan:
             lost_at_date=date(2026, 4, 30),
             user_id=other_user.id,
         )
+        theirs.status = LaporanStatus.ACTIVE
         theirs.addBarang(
             Barang.New(
                 name="Dompet",
@@ -254,6 +274,7 @@ class TestGetAllHomepageLaporan:
         type_body = type_resp.json()
         assert len(type_body["data"]) == 2
         assert {item["type"] for item in type_body["data"]} == {"hilang"}
+        assert all(item["status"] == "active" for item in type_body["data"])
         assert {item["user"]["email"] for item in type_body["data"]} == {
             current_user.email,
             other_user.email,
@@ -266,9 +287,12 @@ class TestGetAllHomepageLaporan:
         )
         assert status_resp.status_code == 200
         status_body = status_resp.json()
-        assert len(status_body["data"]) == 1
+        assert len(status_body["data"]) == 2
         assert {item["status"] for item in status_body["data"]} == {"active"}
-        assert status_body["data"][0]["user"]["email"] == current_user.email
+        assert {item["user"]["email"] for item in status_body["data"]} == {
+            current_user.email,
+            other_user.email,
+        }
 
         combined_resp = await client.get(
             "/homepage/laporan",
@@ -277,10 +301,13 @@ class TestGetAllHomepageLaporan:
         )
         assert combined_resp.status_code == 200
         combined_body = combined_resp.json()
-        assert len(combined_body["data"]) == 1
+        assert len(combined_body["data"]) == 2
         assert combined_body["data"][0]["type"] == "hilang"
-        assert combined_body["data"][0]["status"] == "active"
-        assert combined_body["data"][0]["user"]["email"] == current_user.email
+        assert all(item["status"] == "active" for item in combined_body["data"])
+        assert {item["user"]["email"] for item in combined_body["data"]} == {
+            current_user.email,
+            other_user.email,
+        }
 
     @pytest.mark.asyncio
     async def test_should_return_only_current_users_reports_on_my_laporan(
@@ -511,6 +538,7 @@ class TestGetAllHomepageLaporan:
             lost_at_date=date(2026, 4, 27),
             user_id=current_user.id,
         )
+        oldest.status = LaporanStatus.ACTIVE
         oldest.created_at = base_time
         oldest.updated_at = base_time
         oldest.addBarang(
@@ -527,6 +555,7 @@ class TestGetAllHomepageLaporan:
             found_at_date=date(2026, 4, 28),
             user_id=current_user.id,
         )
+        middle.status = LaporanStatus.ACTIVE
         middle.created_at = base_time + timedelta(minutes=1)
         middle.updated_at = base_time + timedelta(minutes=1)
         middle.addBarang(
@@ -543,6 +572,7 @@ class TestGetAllHomepageLaporan:
             lost_at_date=date(2026, 4, 29),
             user_id=current_user.id,
         )
+        newest.status = LaporanStatus.ACTIVE
         newest.created_at = base_time + timedelta(minutes=2)
         newest.updated_at = base_time + timedelta(minutes=2)
         newest.addBarang(

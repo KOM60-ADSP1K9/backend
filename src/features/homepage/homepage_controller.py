@@ -15,6 +15,9 @@ from src.domain.entity.user import User
 from .usecase.get_all_laporan_usecase import (
     GetAllLaporanUsecase,
 )
+from .usecase.get_my_laporan_usecase import (
+    GetMyLaporanUsecase,
+)
 from src.infrastructure.tables.laporan_table import LaporanTable
 
 homepage_router = APIRouter(prefix="/homepage", tags=["homepage"])
@@ -148,7 +151,7 @@ async def get_my_laporan(
     ),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
     """Get laporan created by the authenticated user."""
-    usecase = GetAllLaporanUsecase(db=db)
+    usecase = GetMyLaporanUsecase(db=db)
     result = await usecase.execute(
         user_id=current_user.id,
         laporan_type=laporan_type,

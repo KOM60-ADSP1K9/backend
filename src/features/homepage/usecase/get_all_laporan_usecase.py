@@ -46,6 +46,9 @@ class GetAllLaporanUsecase:
         if status is not None:
             statement = statement.where(LaporanTable.status == status)
 
+        # exclude draft laporan from the homepage listing
+        statement = statement.where(LaporanTable.status != LaporanStatus.DRAFT)
+
         if user_id is not None:
             statement = statement.where(LaporanTable.user_id == user_id)
 
