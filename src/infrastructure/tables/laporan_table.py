@@ -4,9 +4,9 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import CheckConstraint, Date, DateTime, Enum, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.db import Base
 from src.domain.entity.laporan import (
@@ -16,6 +16,7 @@ from src.domain.entity.laporan import (
     LaporanTemuan,
     LaporanType,
 )
+from src.infrastructure.tables.barang_table import BarangTable
 
 
 def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
@@ -51,8 +52,6 @@ class LaporanTable(Base):
         server_default=LaporanStatus.DRAFT.value,
     )
 
-    photo: Mapped[str] = mapped_column(String, nullable=False)
-
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -74,6 +73,15 @@ class LaporanTable(Base):
     )
 
     found_at_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    barang: Mapped[BarangTable | None] = relationship(
+        "BarangTable",
+        back_populates="laporan",
+        uselist=False,
+        cascade="all, delete-orphan",
+        single_parent=True,
+        lazy="selectin",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -102,9 +110,8 @@ class LaporanTable(Base):
 
     def to_domain(self) -> Laporan:
         if self.type == LaporanType.HILANG:
-            return LaporanHilang(
+            laporan = LaporanHilang(
                 id=self.id,
-                photo=self.photo,
                 lost_at_location_id=self.lost_at_location_id,
                 status=self.status,
                 created_at=self.created_at,
@@ -112,11 +119,13 @@ class LaporanTable(Base):
                 lost_at_date=self.lost_at_date,
                 user_id=self.user_id,
             )
+            if self.barang is not None:
+                laporan.addBarang(self.barang.to_domain())
+            return laporan
 
         if self.type == LaporanType.TEMUAN:
-            return LaporanTemuan(
+            laporan = LaporanTemuan(
                 id=self.id,
-                photo=self.photo,
                 found_at_location_id=self.found_at_location_id,
                 status=self.status,
                 created_at=self.created_at,
@@ -124,6 +133,9 @@ class LaporanTable(Base):
                 found_at_date=self.found_at_date,
                 user_id=self.user_id,
             )
+            if self.barang is not None:
+                laporan.addBarang(self.barang.to_domain())
+            return laporan
 
         raise ValueError(f"Unsupported laporan type: {self.type}")
 
@@ -131,30 +143,34 @@ class LaporanTable(Base):
     def from_domain(cls, laporan: Laporan) -> "LaporanTable":
         """Convert a domain model to the mapped table model."""
         if isinstance(laporan, LaporanHilang) or laporan.type == LaporanType.HILANG:
-            return LaporanHilangTable(
+            row = LaporanHilangTable(
                 id=laporan.id,
                 type=LaporanType.HILANG,
                 status=laporan.status,
-                photo=laporan.photo,
                 user_id=laporan.user_id,
                 lost_at_location_id=getattr(laporan, "lost_at_location_id", None),
                 lost_at_date=getattr(laporan, "lost_at_date", None),
                 created_at=laporan.created_at,
                 updated_at=laporan.updated_at,
             )
+            if laporan.barang is not None:
+                row.barang = BarangTable.from_domain(laporan.barang, laporan.id)
+            return row
 
         if isinstance(laporan, LaporanTemuan) or laporan.type == LaporanType.TEMUAN:
-            return LaporanTemuanTable(
+            row = LaporanTemuanTable(
                 id=laporan.id,
                 type=LaporanType.TEMUAN,
                 status=laporan.status,
-                photo=laporan.photo,
                 user_id=laporan.user_id,
                 found_at_location_id=getattr(laporan, "found_at_location_id", None),
                 found_at_date=getattr(laporan, "found_at_date", None),
                 created_at=laporan.created_at,
                 updated_at=laporan.updated_at,
             )
+            if laporan.barang is not None:
+                row.barang = BarangTable.from_domain(laporan.barang, laporan.id)
+            return row
 
         raise ValueError(f"Unsupported laporan type: {laporan.type}")
 

@@ -26,14 +26,25 @@ class HomepageLaporanResponseDto(BaseModel):
     id: UUID
     type: LaporanType
     status: LaporanStatus
-    photo: str
     lost_at_location_id: UUID | None
     lost_at_date: date | None
     found_at_location_id: UUID | None
     found_at_date: date | None
     created_at: datetime | None
     updated_at: datetime | None
+    barang: "BarangResponseDto"
     is_owned: bool
+
+
+class BarangResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: str
+    photo: str
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 def _to_homepage_laporan_response_dto(
@@ -44,13 +55,13 @@ def _to_homepage_laporan_response_dto(
         id=laporan.id,
         type=laporan.type,
         status=laporan.status,
-        photo=laporan.photo,
         lost_at_location_id=getattr(laporan, "lost_at_location_id", None),
         lost_at_date=getattr(laporan, "lost_at_date", None),
         found_at_location_id=getattr(laporan, "found_at_location_id", None),
         found_at_date=getattr(laporan, "found_at_date", None),
         created_at=laporan.created_at,
         updated_at=laporan.updated_at,
+        barang=BarangResponseDto.model_validate(laporan.barang),
         is_owned=laporan.user_id == current_user_id,
     )
 

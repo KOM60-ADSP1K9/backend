@@ -11,6 +11,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.domain.entity.barang import Barang
 from src.domain.entity.laporan import LaporanHilang
 from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
@@ -66,22 +67,33 @@ class TestGetAllHomepageLaporan:
         await db_session.flush()
 
         repository = LaporanRepository(db_session)
-        await repository.save(
-            LaporanHilang.New(
+        mine = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        mine.addBarang(
+            Barang.New(
+                name="KTP",
+                description="Kartu tanda penduduk",
                 photo="stub://lost-reports/mine.jpg",
-                lost_at_location_id=lokasi.id,
-                lost_at_date=date(2026, 4, 29),
-                user_id=current_user.id,
             )
         )
-        await repository.save(
-            LaporanHilang.New(
+        await repository.save(mine)
+
+        theirs = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 30),
+            user_id=other_user.id,
+        )
+        theirs.addBarang(
+            Barang.New(
+                name="Dompet",
+                description="Dompet kulit cokelat",
                 photo="stub://lost-reports/theirs.jpg",
-                lost_at_location_id=lokasi.id,
-                lost_at_date=date(2026, 4, 30),
-                user_id=other_user.id,
             )
         )
+        await repository.save(theirs)
 
         resp = await client.get("/homepage/laporan", headers=headers)
 
@@ -97,23 +109,33 @@ class TestGetAllHomepageLaporan:
 
         assert len(own_reports) == 1
         assert len(foreign_reports) == 1
-        assert own_reports[0]["photo"] == "stub://lost-reports/mine.jpg"
-        assert foreign_reports[0]["photo"] == "stub://lost-reports/theirs.jpg"
+        assert own_reports[0]["barang"]["name"] == "KTP"
+        assert own_reports[0]["barang"]["photo"] == "stub://lost-reports/mine.jpg"
+        assert foreign_reports[0]["barang"]["name"] == "Dompet"
+        assert foreign_reports[0]["barang"]["photo"] == "stub://lost-reports/theirs.jpg"
 
         expected_keys = {
             "id",
             "type",
             "status",
-            "photo",
             "lost_at_location_id",
             "lost_at_date",
             "found_at_location_id",
             "found_at_date",
             "created_at",
             "updated_at",
+            "barang",
             "is_owned",
         }
         assert set(own_reports[0].keys()) == expected_keys
+        assert set(own_reports[0]["barang"].keys()) == {
+            "id",
+            "name",
+            "description",
+            "photo",
+            "created_at",
+            "updated_at",
+        }
 
     @pytest.mark.asyncio
     async def test_should_reject_request_without_auth(self, client: AsyncClient):

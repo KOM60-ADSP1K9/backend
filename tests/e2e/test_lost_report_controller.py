@@ -45,6 +45,8 @@ class TestCreateLostReport:
             "/lost-reports",
             headers=headers,
             data={
+                "barang_name": "KTP",
+                "barang_description": "Kartu tanda penduduk",
                 "lost_at_location_id": str(lokasi.id),
                 "lost_at_date": "2026-04-29",
             },
@@ -57,21 +59,34 @@ class TestCreateLostReport:
         assert body["message"] == "Lost report created successfully"
         assert body["data"]["type"] == "hilang"
         assert body["data"]["status"] == "draft"
-        assert (
-            body["data"]["photo"]
-            == "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
+        assert body["data"]["barang"]["name"] == "KTP"
+        assert body["data"]["barang"]["description"] == "Kartu tanda penduduk"
+        assert body["data"]["barang"]["photo"] == (
+            "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
         )
         assert body["data"]["lost_at_location_id"] == str(lokasi.id)
         assert body["data"]["lost_at_date"] == "2026-04-29"
+        assert set(body["data"].keys()) == {
+            "id",
+            "type",
+            "status",
+            "lost_at_location_id",
+            "lost_at_date",
+            "created_at",
+            "updated_at",
+            "barang",
+        }
 
         saved_reports = list(await LaporanRepository(db_session).findAll())
         assert len(saved_reports) == 1
         saved_report = saved_reports[0]
         assert saved_report.type is LaporanType.HILANG
         assert saved_report.status is LaporanStatus.DRAFT
-        assert (
-            saved_report.photo
-            == "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
+        assert saved_report.barang is not None
+        assert saved_report.barang.name == "KTP"
+        assert saved_report.barang.description == "Kartu tanda penduduk"
+        assert saved_report.barang.photo == (
+            "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
         )
         assert saved_report.user_id == mahasiswa.id
         assert saved_report.lost_at_date == date(2026, 4, 29)
@@ -88,6 +103,8 @@ class TestCreateLostReport:
             "/lost-reports",
             headers=headers,
             data={
+                "barang_name": "KTP",
+                "barang_description": "Kartu tanda penduduk",
                 "lost_at_location_id": str(uuid4()),
                 "lost_at_date": "2026-04-29",
             },
@@ -108,7 +125,12 @@ class TestCreateLostReport:
         resp = await client.post(
             "/lost-reports",
             headers=headers,
-            data={"lost_at_location_id": str(uuid4()), "lost_at_date": "2026-04-29"},
+            data={
+                "barang_name": "KTP",
+                "barang_description": "Kartu tanda penduduk",
+                "lost_at_location_id": str(uuid4()),
+                "lost_at_date": "2026-04-29",
+            },
             files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},
         )
 
@@ -132,7 +154,11 @@ class TestCreateLostReport:
         resp = await client.post(
             "/lost-reports",
             headers=headers,
-            data={"lost_at_date": "2026-04-29"},
+            data={
+                "barang_name": "KTP",
+                "barang_description": "Kartu tanda penduduk",
+                "lost_at_date": "2026-04-29",
+            },
             files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},
         )
 
@@ -168,7 +194,11 @@ class TestCreateLostReport:
         resp = await client.post(
             "/lost-reports",
             headers=headers,
-            data={"lost_at_location_id": str(lokasi.id)},
+            data={
+                "barang_name": "KTP",
+                "barang_description": "Kartu tanda penduduk",
+                "lost_at_location_id": str(lokasi.id),
+            },
             files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},
         )
 

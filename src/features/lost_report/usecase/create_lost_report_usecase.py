@@ -5,6 +5,7 @@ from uuid import UUID
 
 from src.application.i_storage_service import IStorageService
 from src.core.exceptions import NotFoundException
+from src.domain.entity.barang import Barang
 from src.domain.entity.i_lokasi_repository import ILokasiRepository
 from src.domain.entity.i_laporan_repository import ILaporanRepository
 from src.domain.entity.laporan import Laporan, LaporanHilang
@@ -15,12 +16,16 @@ class CreateLostReportRequest:
         self,
         photo_content: bytes,
         photo_filename: str,
+        barang_name: str,
+        barang_description: str,
         lost_at_location_id: UUID,
         lost_at_date: date,
         user_id: UUID,
     ) -> None:
         self.photo_content = photo_content
         self.photo_filename = photo_filename
+        self.barang_name = barang_name
+        self.barang_description = barang_description
         self.lost_at_location_id = lost_at_location_id
         self.lost_at_date = lost_at_date
         self.user_id = user_id
@@ -45,7 +50,7 @@ class CreateLostReportUsecase:
         self._storage_service = storage_service
 
     async def execute(self, request: CreateLostReportRequest) -> CreateLostReportResult:
-        """Upload the photo stub and persist the new lost report."""
+        """Upload the barang photo and persist the new lost report."""
         lokasi = await self._lokasi_repository.find_by_id(request.lost_at_location_id)
         if lokasi is None:
             raise NotFoundException("Lokasi tidak ditemukan")
@@ -55,12 +60,18 @@ class CreateLostReportUsecase:
             request.photo_filename,
         )
 
-        laporan = LaporanHilang.New(
+        barang = Barang.New(
+            name=request.barang_name,
+            description=request.barang_description,
             photo=photo_path,
+        )
+
+        laporan = LaporanHilang.New(
             lost_at_location_id=request.lost_at_location_id,
             lost_at_date=request.lost_at_date,
             user_id=request.user_id,
         )
+        laporan.addBarang(barang)
 
         saved_laporan = await self._laporan_repository.save(laporan)
         return CreateLostReportResult(laporan=saved_laporan)

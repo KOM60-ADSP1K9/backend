@@ -32,6 +32,7 @@ def _load_app_modules():
     from src.core.config import Settings
     from src.core.db import Base, get_async_db_session
     from src.infrastructure.tables import (
+        BarangTable,
         LaporanHilangTable,
         LaporanTable,
         LaporanTemuanTable,
@@ -41,6 +42,7 @@ def _load_app_modules():
 
     # Ensure model modules are imported so metadata is fully registered.
     _ = (
+        BarangTable,
         LaporanTable,
         LaporanHilangTable,
         LaporanTemuanTable,
