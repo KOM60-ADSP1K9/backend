@@ -33,6 +33,11 @@ class ConflictException(BaseHTTPException):
         super().__init__(status.HTTP_409_CONFLICT, message)
 
 
+class RequestTooLargeException(BaseHTTPException):
+    def __init__(self, message: str = "Request entity too large") -> None:
+        super().__init__(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, message)
+
+
 class ServerException(BaseHTTPException):
     def __init__(self, message: str = "Internal server error") -> None:
         super().__init__(status.HTTP_500_INTERNAL_SERVER_ERROR, message)

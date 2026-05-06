@@ -1,0 +1,57 @@
+"""Usecase: Get all laporan for the homepage."""
+
+from collections.abc import Iterable
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from src.infrastructure.tables.laporan_table import LaporanTable
+from src.domain.entity.laporan import LaporanStatus, LaporanType
+
+
+class GetAllLaporanResult:
+    def __init__(self, laporan: Iterable[LaporanTable]) -> None:
+        self.laporan = laporan
+
+
+class GetAllLaporanUsecase:
+    """Get-all-laporan use case with injected database session."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self._db = db
+
+    async def execute(
+        self,
+        user_id: UUID | None = None,
+        laporan_type: LaporanType | None = None,
+        status: LaporanStatus | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> GetAllLaporanResult:
+        """Return laporan in the system, optionally filtered and paginated."""
+        offset = (page - 1) * limit
+        statement = (
+            select(LaporanTable)
+            .options(selectinload(LaporanTable.barang), selectinload(LaporanTable.user))
+            .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        if laporan_type is not None:
+            statement = statement.where(LaporanTable.type == laporan_type)
+
+        if status is not None:
+            statement = statement.where(LaporanTable.status == status)
+
+        # exclude draft laporan from the homepage listing
+        statement = statement.where(LaporanTable.status != LaporanStatus.DRAFT)
+
+        if user_id is not None:
+            statement = statement.where(LaporanTable.user_id == user_id)
+
+        result = await self._db.execute(statement)
+        laporan = list(result.scalars().all())
+        return GetAllLaporanResult(laporan=laporan)

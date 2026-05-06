@@ -31,10 +31,24 @@ load_dotenv(
 def _load_app_modules():
     from src.core.config import Settings
     from src.core.db import Base, get_async_db_session
-    from src.infrastructure.tables import LokasiTable, UserTable
+    from src.infrastructure.tables import (
+        BarangTable,
+        LaporanHilangTable,
+        LaporanTable,
+        LaporanTemuanTable,
+        LokasiTable,
+        UserTable,
+    )
 
     # Ensure model modules are imported so metadata is fully registered.
-    _ = (LokasiTable, UserTable)
+    _ = (
+        BarangTable,
+        LaporanTable,
+        LaporanHilangTable,
+        LaporanTemuanTable,
+        LokasiTable,
+        UserTable,
+    )
 
     return Settings, Base, get_async_db_session
 

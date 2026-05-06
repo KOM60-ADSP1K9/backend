@@ -3,8 +3,17 @@ from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 from src.core.config import settings
 from src.core.db import Base
+from src.infrastructure.tables import (
+    LaporanHilangTable,
+    LaporanTable,
+    LaporanTemuanTable,
+    LokasiTable,
+    UserTable,
+)
 
 # import all tables to register them in metadata
+
+_ = (LaporanTable, LaporanHilangTable, LaporanTemuanTable, LokasiTable, UserTable)
 
 config = context.config
 target_metadata = Base.metadata

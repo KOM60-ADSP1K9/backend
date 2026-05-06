@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -61,6 +62,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "fakultas": "SSMI",
             "departemen": "Ilmu Komputer",
             "lokasi_id": None,
+            "email_verified_at": datetime.now(),  # current timestamp
         },
         {
             "email": "mahasiswa2@apps.ipb.ac.id",
@@ -71,6 +73,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "fakultas": "FTT",
             "departemen": "Teknik Mesin",
             "lokasi_id": None,
+            "email_verified_at": datetime.now(),  # current timestamp
         },
         {
             "email": "staff1@apps.ipb.ac.id",
@@ -81,6 +84,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "fakultas": None,
             "departemen": None,
             "lokasi_id": None,
+            "email_verified_at": datetime.now(),  # current timestamp
         },
         {
             "email": "staff2@apps.ipb.ac.id",
@@ -91,6 +95,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
             "fakultas": None,
             "departemen": None,
             "lokasi_id": STAFF2_SUPERVISED_LOKASI_ID,
+            "email_verified_at": datetime.now(),  # current timestamp
         },
     ]
 
