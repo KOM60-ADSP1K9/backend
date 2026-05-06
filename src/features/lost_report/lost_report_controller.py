@@ -46,7 +46,7 @@ async def create_lost_report(
     photo: UploadFile = File(...),
     lost_at_location_id: UUID = Form(...),
     lost_at_date: date = Form(...),
-    _current_user: User = Depends(require_role(UserRole.MAHASISWA)),
+    current_user: User = Depends(require_role(UserRole.MAHASISWA)),
     usecase: CreateLostReportUsecase = Depends(get_create_lost_report_usecase),
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:
     """Create a new lost report. Only mahasiswa can access this endpoint."""
@@ -68,6 +68,7 @@ async def create_lost_report(
             photo_filename=photo.filename or "photo",
             lost_at_location_id=lost_at_location_id,
             lost_at_date=lost_at_date,
+            user_id=current_user.id,
         )
     )
 

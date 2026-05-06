@@ -36,6 +36,7 @@ class Laporan(ABC):
     photo: str
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+    user_id: UUID | None = None
 
     def __init__(
         self,
@@ -45,6 +46,7 @@ class Laporan(ABC):
         status: LaporanStatus = LaporanStatus.DRAFT,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
+        user_id: UUID | None = None,
     ) -> None:
         self.id = id
         self.type = type
@@ -52,6 +54,7 @@ class Laporan(ABC):
         self.photo = photo
         self.created_at = created_at
         self.updated_at = updated_at
+        self.user_id = user_id
 
 
 @dataclass
@@ -70,6 +73,7 @@ class LaporanHilang(Laporan):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
         lost_at_date: datetime.date | None = None,
+        user_id: UUID | None = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -78,6 +82,7 @@ class LaporanHilang(Laporan):
             status=status,
             created_at=created_at,
             updated_at=updated_at,
+            user_id=user_id,
         )
         self.lost_at_location_id = lost_at_location_id
         self.lost_at_date = lost_at_date
@@ -97,6 +102,7 @@ class LaporanHilang(Laporan):
         lost_at_location_id: UUID | None = None,
         status: LaporanStatus = LaporanStatus.DRAFT,
         lost_at_date: datetime.date | None = None,
+        user_id: UUID | None = None,
     ) -> Self:
         """Create a new lost-item laporan."""
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -108,6 +114,7 @@ class LaporanHilang(Laporan):
             created_at=now,
             updated_at=now,
             lost_at_date=lost_at_date,
+            user_id=user_id,
         )
 
 
@@ -127,6 +134,7 @@ class LaporanTemuan(Laporan):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
         found_at_date: datetime.date | None = None,
+        user_id: UUID | None = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -135,6 +143,7 @@ class LaporanTemuan(Laporan):
             status=status,
             created_at=created_at,
             updated_at=updated_at,
+            user_id=user_id,
         )
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date
@@ -154,6 +163,7 @@ class LaporanTemuan(Laporan):
         found_at_location_id: UUID | None = None,
         status: LaporanStatus = LaporanStatus.DRAFT,
         found_at_date: datetime.date | None = None,
+        user_id: UUID | None = None,
     ) -> Self:
         """Create a new found-item laporan."""
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -165,4 +175,5 @@ class LaporanTemuan(Laporan):
             created_at=now,
             updated_at=now,
             found_at_date=found_at_date,
+            user_id=user_id,
         )

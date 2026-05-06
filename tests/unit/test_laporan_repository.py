@@ -11,7 +11,9 @@ from src.domain.entity.laporan import (
     LaporanTemuan,
     LaporanType,
 )
+from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
+from src.infrastructure.repositories.user_repository import UserRepository
 from src.infrastructure.tables.lokasi_table import LokasiTable
 
 
@@ -27,10 +29,11 @@ from src.infrastructure.tables.lokasi_table import LokasiTable
     ),
     [
         (
-            lambda location_id: LaporanHilang.New(
+            lambda location_id, user_id: LaporanHilang.New(
                 photo="hilang.jpg",
                 lost_at_location_id=location_id,
                 lost_at_date=date(2026, 4, 1),
+                user_id=user_id,
             ),
             LaporanHilang,
             LaporanType.HILANG,
@@ -39,10 +42,11 @@ from src.infrastructure.tables.lokasi_table import LokasiTable
             date(2026, 4, 1),
         ),
         (
-            lambda location_id: LaporanTemuan.New(
+            lambda location_id, user_id: LaporanTemuan.New(
                 photo="temuan.jpg",
                 found_at_location_id=location_id,
                 found_at_date=date(2026, 4, 2),
+                user_id=user_id,
             ),
             LaporanTemuan,
             LaporanType.TEMUAN,
@@ -76,17 +80,29 @@ async def test_laporan_repository_round_trip(
         else "foundAtLocation"
     )
 
+    owner = await UserRepository(db_session).save(
+        User.New(
+            email="owner@apps.ipb.ac.id",
+            hashed_password="hashed-password",
+            role=UserRole.MAHASISWA,
+            nim="G6401211009",
+            fakultas="FMIPA",
+            departemen="Ilmu Komputer",
+        )
+    )
+
     lokasi = LokasiTable(name="Lokasi A", latitude=-6.554321, longitude=106.723456)
     db_session.add(lokasi)
     await db_session.flush()
 
     repository = LaporanRepository(db_session)
-    laporan = factory(lokasi.id)
+    laporan = factory(lokasi.id, owner.id)
 
     saved = await repository.save(laporan)
 
     assert isinstance(saved, expected_cls)
     assert saved.type is expected_type
+    assert saved.user_id == owner.id
     assert getattr(saved, location_field) == lokasi.id
     assert getattr(saved, date_field) == date_value
     assert getattr(saved, alias_field) == lokasi.id
@@ -98,6 +114,7 @@ async def test_laporan_repository_round_trip(
 
     assert isinstance(updated, expected_cls)
     assert updated.status is LaporanStatus.ACTIVE
+    assert updated.user_id == owner.id
     assert getattr(updated, location_field) == lokasi.id
     assert getattr(updated, date_field) == date_value
     assert getattr(updated, alias_field) == lokasi.id
@@ -111,6 +128,7 @@ async def test_laporan_repository_round_trip(
     assert found.id == updated.id
     assert found.type is expected_type
     assert found.status is LaporanStatus.ACTIVE
+    assert found.user_id == owner.id
     assert getattr(found, location_field) == lokasi.id
     assert getattr(found, date_field) == date_value
     assert getattr(found, alias_field) == lokasi.id

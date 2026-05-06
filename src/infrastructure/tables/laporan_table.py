@@ -53,6 +53,12 @@ class LaporanTable(Base):
 
     photo: Mapped[str] = mapped_column(String, nullable=False)
 
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     lost_at_location_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("lokasi.id", ondelete="SET NULL"),
@@ -104,6 +110,7 @@ class LaporanTable(Base):
                 created_at=self.created_at,
                 updated_at=self.updated_at,
                 lost_at_date=self.lost_at_date,
+                user_id=self.user_id,
             )
 
         if self.type == LaporanType.TEMUAN:
@@ -115,6 +122,7 @@ class LaporanTable(Base):
                 created_at=self.created_at,
                 updated_at=self.updated_at,
                 found_at_date=self.found_at_date,
+                user_id=self.user_id,
             )
 
         raise ValueError(f"Unsupported laporan type: {self.type}")
@@ -128,6 +136,7 @@ class LaporanTable(Base):
                 type=LaporanType.HILANG,
                 status=laporan.status,
                 photo=laporan.photo,
+                user_id=laporan.user_id,
                 lost_at_location_id=getattr(laporan, "lost_at_location_id", None),
                 lost_at_date=getattr(laporan, "lost_at_date", None),
                 created_at=laporan.created_at,
@@ -140,6 +149,7 @@ class LaporanTable(Base):
                 type=LaporanType.TEMUAN,
                 status=laporan.status,
                 photo=laporan.photo,
+                user_id=laporan.user_id,
                 found_at_location_id=getattr(laporan, "found_at_location_id", None),
                 found_at_date=getattr(laporan, "found_at_date", None),
                 created_at=laporan.created_at,

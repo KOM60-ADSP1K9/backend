@@ -17,11 +17,13 @@ class CreateLostReportRequest:
         photo_filename: str,
         lost_at_location_id: UUID,
         lost_at_date: date,
+        user_id: UUID,
     ) -> None:
         self.photo_content = photo_content
         self.photo_filename = photo_filename
         self.lost_at_location_id = lost_at_location_id
         self.lost_at_date = lost_at_date
+        self.user_id = user_id
 
 
 class CreateLostReportResult:
@@ -57,6 +59,7 @@ class CreateLostReportUsecase:
             photo=photo_path,
             lost_at_location_id=request.lost_at_location_id,
             lost_at_date=request.lost_at_date,
+            user_id=request.user_id,
         )
 
         saved_laporan = await self._laporan_repository.save(laporan)

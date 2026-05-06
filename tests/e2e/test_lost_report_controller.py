@@ -67,6 +67,7 @@ class TestCreateLostReport:
         assert saved_report.type is LaporanType.HILANG
         assert saved_report.status is LaporanStatus.DRAFT
         assert saved_report.photo == "stub://lost-reports/lost-card.jpg"
+        assert saved_report.user_id == mahasiswa.id
         assert saved_report.lost_at_date == date(2026, 4, 29)
 
     @pytest.mark.asyncio
