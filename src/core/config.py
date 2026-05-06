@@ -40,6 +40,9 @@ class Settings:
         self.VERIFICATION_SECRET_KEY = os.getenv(
             "VERIFICATION_SECRET_KEY", self.JWT_SECRET_KEY
         )
+        self.R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+        self.R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY", "")
+        self.R2_SECRET_KEY = os.getenv("R2_SECRET_KEY", "")
 
     @staticmethod
     def _get_required(key: str) -> str:

@@ -12,7 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entity.barang import Barang
-from src.domain.entity.laporan import LaporanHilang
+from src.domain.entity.laporan import LaporanHilang, LaporanTemuan
 from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.repositories.user_repository import UserRepository
@@ -81,6 +81,20 @@ class TestGetAllHomepageLaporan:
         )
         await repository.save(mine)
 
+        found_by_me = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 4, 30),
+            user_id=current_user.id,
+        )
+        found_by_me.addBarang(
+            Barang.New(
+                name="Tas",
+                description="Tas laptop hitam",
+                photo="stub://found-reports/mine-found.jpg",
+            )
+        )
+        await repository.save(found_by_me)
+
         theirs = LaporanHilang.New(
             lost_at_location_id=lokasi.id,
             lost_at_date=date(2026, 4, 30),
@@ -102,15 +116,25 @@ class TestGetAllHomepageLaporan:
         assert body["status"] == "success"
         assert body["message"] == "Laporan fetched successfully"
         assert isinstance(body["data"], list)
-        assert len(body["data"]) == 2
+        assert len(body["data"]) == 3
 
         own_reports = [item for item in body["data"] if item["is_owned"]]
         foreign_reports = [item for item in body["data"] if not item["is_owned"]]
 
-        assert len(own_reports) == 1
+        assert len(own_reports) == 2
         assert len(foreign_reports) == 1
-        assert own_reports[0]["barang"]["name"] == "KTP"
-        assert own_reports[0]["barang"]["photo"] == "stub://lost-reports/mine.jpg"
+
+        lost_report = next(item for item in own_reports if item["type"] == "hilang")
+        found_report = next(item for item in own_reports if item["type"] == "temuan")
+
+        assert lost_report["barang"]["name"] == "KTP"
+        assert lost_report["barang"]["photo"] == "stub://lost-reports/mine.jpg"
+        assert lost_report["status"] == "draft"
+
+        assert any(item["type"] == "temuan" for item in own_reports)
+        assert found_report["barang"]["name"] == "Tas"
+        assert found_report["barang"]["photo"] == "stub://found-reports/mine-found.jpg"
+        assert found_report["status"] == "draft"
         assert foreign_reports[0]["barang"]["name"] == "Dompet"
         assert foreign_reports[0]["barang"]["photo"] == "stub://lost-reports/theirs.jpg"
 
