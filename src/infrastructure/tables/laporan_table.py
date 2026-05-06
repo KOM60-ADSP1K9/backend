@@ -17,6 +17,7 @@ from src.domain.entity.laporan import (
     LaporanType,
 )
 from src.infrastructure.tables.barang_table import BarangTable
+from src.infrastructure.tables.user_table import UserTable
 
 
 def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
@@ -56,6 +57,11 @@ class LaporanTable(Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
+    )
+
+    user: Mapped[UserTable | None] = relationship(
+        "UserTable",
+        lazy="selectin",
     )
 
     lost_at_location_id: Mapped[uuid.UUID | None] = mapped_column(

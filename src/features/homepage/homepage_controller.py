@@ -10,14 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.auth import get_current_user
 from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse
-from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
+from src.domain.entity.laporan import LaporanStatus, LaporanType
 from src.domain.entity.user import User
-from src.features.homepage.usecase.get_all_laporan_usecase import (
+from .usecase.get_all_laporan_usecase import (
     GetAllLaporanUsecase,
 )
-from src.features.homepage.usecase.get_my_laporan_usecase import (
-    GetMyLaporanUsecase,
-)
+from src.infrastructure.tables.laporan_table import LaporanTable
 
 homepage_router = APIRouter(prefix="/homepage", tags=["homepage"])
 
@@ -35,6 +33,7 @@ class HomepageLaporanResponseDto(BaseModel):
     created_at: datetime | None
     updated_at: datetime | None
     barang: "BarangResponseDto"
+    user: "UserResponseDto | None"
     is_owned: bool
 
 
@@ -49,8 +48,16 @@ class BarangResponseDto(BaseModel):
     updated_at: datetime | None
 
 
+class UserResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    nim: str | None
+    nip: str | None
+
+
 def _to_homepage_laporan_response_dto(
-    laporan: Laporan,
+    laporan: LaporanTable,
     current_user_id: UUID,
 ) -> HomepageLaporanResponseDto:
     return HomepageLaporanResponseDto(
@@ -64,6 +71,11 @@ def _to_homepage_laporan_response_dto(
         created_at=laporan.created_at,
         updated_at=laporan.updated_at,
         barang=BarangResponseDto.model_validate(laporan.barang),
+        user=(
+            UserResponseDto.model_validate(laporan.user)
+            if laporan.user is not None
+            else None
+        ),
         is_owned=laporan.user_id == current_user_id,
     )
 
@@ -136,7 +148,7 @@ async def get_my_laporan(
     ),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
     """Get laporan created by the authenticated user."""
-    usecase = GetMyLaporanUsecase(db=db)
+    usecase = GetAllLaporanUsecase(db=db)
     result = await usecase.execute(
         user_id=current_user.id,
         laporan_type=laporan_type,

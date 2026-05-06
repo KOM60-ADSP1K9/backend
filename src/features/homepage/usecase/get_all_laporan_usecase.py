@@ -1,17 +1,18 @@
 """Usecase: Get all laporan for the homepage."""
 
 from collections.abc import Iterable
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
 from src.infrastructure.tables.laporan_table import LaporanTable
+from src.domain.entity.laporan import LaporanStatus, LaporanType
 
 
 class GetAllLaporanResult:
-    def __init__(self, laporan: Iterable[Laporan]) -> None:
+    def __init__(self, laporan: Iterable[LaporanTable]) -> None:
         self.laporan = laporan
 
 
@@ -23,6 +24,7 @@ class GetAllLaporanUsecase:
 
     async def execute(
         self,
+        user_id: UUID | None = None,
         laporan_type: LaporanType | None = None,
         status: LaporanStatus | None = None,
         page: int = 1,
@@ -32,7 +34,7 @@ class GetAllLaporanUsecase:
         offset = (page - 1) * limit
         statement = (
             select(LaporanTable)
-            .options(selectinload(LaporanTable.barang))
+            .options(selectinload(LaporanTable.barang), selectinload(LaporanTable.user))
             .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
             .offset(offset)
             .limit(limit)
@@ -44,6 +46,9 @@ class GetAllLaporanUsecase:
         if status is not None:
             statement = statement.where(LaporanTable.status == status)
 
+        if user_id is not None:
+            statement = statement.where(LaporanTable.user_id == user_id)
+
         result = await self._db.execute(statement)
-        laporan = [row.to_domain() for row in result.scalars().all()]
+        laporan = list(result.scalars().all())
         return GetAllLaporanResult(laporan=laporan)

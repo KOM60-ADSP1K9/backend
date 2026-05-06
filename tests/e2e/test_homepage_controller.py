@@ -149,6 +149,7 @@ class TestGetAllHomepageLaporan:
             "created_at",
             "updated_at",
             "barang",
+            "user",
             "is_owned",
         }
         assert set(own_reports[0].keys()) == expected_keys
@@ -160,6 +161,11 @@ class TestGetAllHomepageLaporan:
             "created_at",
             "updated_at",
         }
+        assert set(own_reports[0]["user"].keys()) == {"email", "nim", "nip"}
+        assert own_reports[0]["user"]["email"] == current_user.email
+        assert own_reports[0]["user"]["nim"] == current_user.nim
+        assert own_reports[0]["user"]["nip"] is None
+        assert foreign_reports[0]["user"]["email"] == other_user.email
 
     @pytest.mark.asyncio
     async def test_should_reject_request_without_auth(self, client: AsyncClient):
@@ -248,6 +254,10 @@ class TestGetAllHomepageLaporan:
         type_body = type_resp.json()
         assert len(type_body["data"]) == 2
         assert {item["type"] for item in type_body["data"]} == {"hilang"}
+        assert {item["user"]["email"] for item in type_body["data"]} == {
+            current_user.email,
+            other_user.email,
+        }
 
         status_resp = await client.get(
             "/homepage/laporan",
@@ -258,6 +268,7 @@ class TestGetAllHomepageLaporan:
         status_body = status_resp.json()
         assert len(status_body["data"]) == 1
         assert {item["status"] for item in status_body["data"]} == {"active"}
+        assert status_body["data"][0]["user"]["email"] == current_user.email
 
         combined_resp = await client.get(
             "/homepage/laporan",
@@ -269,6 +280,7 @@ class TestGetAllHomepageLaporan:
         assert len(combined_body["data"]) == 1
         assert combined_body["data"][0]["type"] == "hilang"
         assert combined_body["data"][0]["status"] == "active"
+        assert combined_body["data"][0]["user"]["email"] == current_user.email
 
     @pytest.mark.asyncio
     async def test_should_return_only_current_users_reports_on_my_laporan(
@@ -347,6 +359,9 @@ class TestGetAllHomepageLaporan:
         assert body["message"] == "Laporan fetched successfully"
         assert len(body["data"]) == 2
         assert all(item["is_owned"] for item in body["data"])
+        assert {item["user"]["email"] for item in body["data"]} == {
+            current_user.email,
+        }
         assert {item["barang"]["name"] for item in body["data"]} == {
             "KTP",
             "Tas",
@@ -443,6 +458,7 @@ class TestGetAllHomepageLaporan:
         assert page_one_body["data"][0]["barang"]["name"] == "KTP"
         assert page_one_body["data"][0]["type"] == "hilang"
         assert page_one_body["data"][0]["status"] == "active"
+        assert page_one_body["data"][0]["user"]["email"] == current_user.email
         assert page_one_body["data"][0]["is_owned"] is True
 
         page_two_resp = await client.get(
@@ -456,6 +472,7 @@ class TestGetAllHomepageLaporan:
         assert page_two_body["data"][0]["barang"]["name"] == "Jaket"
         assert page_two_body["data"][0]["type"] == "hilang"
         assert page_two_body["data"][0]["status"] == "active"
+        assert page_two_body["data"][0]["user"]["email"] == current_user.email
         assert page_two_body["data"][0]["is_owned"] is True
 
         page_three_resp = await client.get(

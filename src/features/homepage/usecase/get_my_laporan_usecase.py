@@ -7,12 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
 from src.infrastructure.tables.laporan_table import LaporanTable
+from src.domain.entity.laporan import LaporanStatus, LaporanType
 
 
 class GetMyLaporanResult:
-    def __init__(self, laporan: Iterable[Laporan]) -> None:
+    def __init__(self, laporan: Iterable[LaporanTable]) -> None:
         self.laporan = laporan
 
 
@@ -34,7 +34,7 @@ class GetMyLaporanUsecase:
         offset = (page - 1) * limit
         statement = (
             select(LaporanTable)
-            .options(selectinload(LaporanTable.barang))
+            .options(selectinload(LaporanTable.barang), selectinload(LaporanTable.user))
             .where(LaporanTable.user_id == user_id)
             .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
             .offset(offset)
@@ -48,5 +48,5 @@ class GetMyLaporanUsecase:
             statement = statement.where(LaporanTable.status == status)
 
         result = await self._db.execute(statement)
-        laporan = [row.to_domain() for row in result.scalars().all()]
+        laporan = list(result.scalars().all())
         return GetMyLaporanResult(laporan=laporan)
