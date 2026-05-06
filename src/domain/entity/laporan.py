@@ -37,6 +37,8 @@ class Laporan(ABC):
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
     user_id: UUID | None = None
+    MAX_PHOTO_SIZE_MB: int = 5
+    ALLOWED_PHOTO_TYPES: set[str] = frozenset({"image/jpeg", "image/png"})
 
     def __init__(
         self,

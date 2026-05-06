@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.core.auth import require_role
 from src.core.http import HTTPDataResponse
-from src.domain.entity.laporan import LaporanStatus, LaporanType
+from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
 from src.domain.entity.user import User, UserRole
 from src.features.lost_report.lost_report_dependencies import (
     get_create_lost_report_usecase,
@@ -50,16 +50,16 @@ async def create_lost_report(
     usecase: CreateLostReportUsecase = Depends(get_create_lost_report_usecase),
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:
     """Create a new lost report. Only mahasiswa can access this endpoint."""
-    if photo.content_type not in ["image/jpeg", "image/png"]:
+    if photo.content_type not in Laporan.ALLOWED_PHOTO_TYPES:
         return HTTPDataResponse[CreateLostReportResponseDto](
             status="error",
             message="Invalid photo format. Only JPEG and PNG are allowed.",
         )
 
-    if photo.size > 5 * 1024 * 1024:  # 5 MB limit
+    if photo.size > Laporan.MAX_PHOTO_SIZE_MB * 1024 * 1024:  # convert MB to bytes
         return HTTPDataResponse[CreateLostReportResponseDto](
             status="error",
-            message="Photo size exceeds the 5 MB limit.",
+            message=f"Photo size exceeds the {Laporan.MAX_PHOTO_SIZE_MB} MB limit.",
         )
 
     result = await usecase.execute(
