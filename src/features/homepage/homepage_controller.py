@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,6 @@ from src.domain.entity.user import User
 from src.features.homepage.usecase.get_all_laporan_usecase import (
     GetAllLaporanUsecase,
 )
-from src.infrastructure.repositories.laporan_repository import LaporanRepository
 
 homepage_router = APIRouter(prefix="/homepage", tags=["homepage"])
 
@@ -73,10 +72,19 @@ def _to_homepage_laporan_response_dto(
 async def get_all_laporan(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db_session),
+    laporan_type: LaporanType | None = Query(
+        None,
+        alias="type",
+        description="Filter laporan by type",
+    ),
+    status: LaporanStatus | None = Query(
+        None,
+        description="Filter laporan by status",
+    ),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
-    """Get all laporan visible on the homepage for any authenticated user."""
-    usecase = GetAllLaporanUsecase(laporan_repository=LaporanRepository(db))
-    result = await usecase.execute()
+    """Get laporan visible on the homepage for any authenticated user."""
+    usecase = GetAllLaporanUsecase(db=db)
+    result = await usecase.execute(laporan_type=laporan_type, status=status)
 
     return HTTPDataResponse[list[HomepageLaporanResponseDto]](
         status="success",

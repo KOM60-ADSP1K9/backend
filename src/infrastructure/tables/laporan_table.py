@@ -118,9 +118,8 @@ class LaporanTable(Base):
                 updated_at=self.updated_at,
                 lost_at_date=self.lost_at_date,
                 user_id=self.user_id,
+                barang=self.barang.to_domain() if self.barang is not None else None,
             )
-            if self.barang is not None:
-                laporan.addBarang(self.barang.to_domain())
             return laporan
 
         if self.type == LaporanType.TEMUAN:
@@ -132,9 +131,8 @@ class LaporanTable(Base):
                 updated_at=self.updated_at,
                 found_at_date=self.found_at_date,
                 user_id=self.user_id,
+                barang=self.barang.to_domain() if self.barang is not None else None,
             )
-            if self.barang is not None:
-                laporan.addBarang(self.barang.to_domain())
             return laporan
 
         raise ValueError(f"Unsupported laporan type: {self.type}")

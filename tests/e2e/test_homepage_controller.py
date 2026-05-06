@@ -12,7 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entity.barang import Barang
-from src.domain.entity.laporan import LaporanHilang, LaporanTemuan
+from src.domain.entity.laporan import LaporanHilang, LaporanStatus, LaporanTemuan
 from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.repositories.user_repository import UserRepository
@@ -168,3 +168,104 @@ class TestGetAllHomepageLaporan:
 
         assert resp.status_code in {401, 403}
         assert resp.json()["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_should_filter_reports_by_type_status_and_both(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Homepage should support filtering by type, status, and both together."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-filter@apps.ipb.ac.id",
+            nim="G6401212003",
+        )
+        other_user = await seed_verified_user(
+            db_session,
+            email="home-filter-other@apps.ipb.ac.id",
+            nim="G6401212004",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung Filter",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+
+        mine = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        mine.status = LaporanStatus.ACTIVE
+        mine.addBarang(
+            Barang.New(
+                name="Kartu Mahasiswa",
+                description="KTM biru",
+                photo="stub://lost-reports/active.jpg",
+            )
+        )
+        await repository.save(mine)
+
+        found_by_me = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 4, 30),
+            user_id=current_user.id,
+        )
+        found_by_me.addBarang(
+            Barang.New(
+                name="Tas",
+                description="Tas laptop hitam",
+                photo="stub://found-reports/closed.jpg",
+            )
+        )
+        await repository.save(found_by_me)
+
+        theirs = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 30),
+            user_id=other_user.id,
+        )
+        theirs.addBarang(
+            Barang.New(
+                name="Dompet",
+                description="Dompet kulit cokelat",
+                photo="stub://lost-reports/other-closed.jpg",
+            )
+        )
+        await repository.save(theirs)
+
+        type_resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"type": "hilang"},
+        )
+        assert type_resp.status_code == 200
+        type_body = type_resp.json()
+        assert len(type_body["data"]) == 2
+        assert {item["type"] for item in type_body["data"]} == {"hilang"}
+
+        status_resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"status": "active"},
+        )
+        assert status_resp.status_code == 200
+        status_body = status_resp.json()
+        assert len(status_body["data"]) == 1
+        assert {item["status"] for item in status_body["data"]} == {"active"}
+
+        combined_resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"type": "hilang", "status": "active"},
+        )
+        assert combined_resp.status_code == 200
+        combined_body = combined_resp.json()
+        assert len(combined_body["data"]) == 1
+        assert combined_body["data"][0]["type"] == "hilang"
+        assert combined_body["data"][0]["status"] == "active"
