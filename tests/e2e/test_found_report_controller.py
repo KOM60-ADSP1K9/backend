@@ -16,6 +16,7 @@ from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.tables.lokasi_table import LokasiTable
 from tests.e2e.helpers import (
     get_auth_header,
+    seed_kategori_barang,
     seed_verified_mahasiswa,
     seed_verified_staff_with_supervised_lokasi,
 )
@@ -39,6 +40,7 @@ class TestCreateFoundReport:
         )
         db_session.add(lokasi)
         await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/found-reports",
@@ -46,6 +48,7 @@ class TestCreateFoundReport:
             data={
                 "barang_name": "Dompet",
                 "barang_description": "Dompet kulit cokelat",
+                "kategori_barang_id": str(kategori.id),
                 "found_at_location_id": str(lokasi.id),
                 "found_at_date": "2026-04-30",
             },
@@ -62,6 +65,7 @@ class TestCreateFoundReport:
         assert body["data"]["found_at_date"] == "2026-04-30"
         assert body["data"]["barang"]["name"] == "Dompet"
         assert body["data"]["barang"]["description"] == "Dompet kulit cokelat"
+        assert body["data"]["barang"]["kategori_barang_id"] == str(kategori.id)
         assert body["data"]["barang"]["photo"] == (
             "https://placehold.co/600x400?text=stub://lost-reports/found-card.jpg"
         )
@@ -76,6 +80,7 @@ class TestCreateFoundReport:
         assert saved_report.barang is not None
         assert saved_report.barang.name == "Dompet"
         assert saved_report.barang.description == "Dompet kulit cokelat"
+        assert saved_report.barang.kategori_barang_id == kategori.id
         assert saved_report.barang.photo == (
             "https://placehold.co/600x400?text=stub://lost-reports/found-card.jpg"
         )
@@ -96,6 +101,7 @@ class TestCreateFoundReport:
         )
         db_session.add(decoy_lokasi)
         await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/found-reports",
@@ -103,6 +109,7 @@ class TestCreateFoundReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "found_at_location_id": str(decoy_lokasi.id),
                 "found_at_date": "2026-04-30",
             },
@@ -114,9 +121,12 @@ class TestCreateFoundReport:
         assert body["status"] == "success"
         assert body["data"]["found_at_location_id"] == str(lokasi["id"])
         assert body["data"]["barang"]["name"] == "KTP"
+        assert body["data"]["barang"]["kategori_barang_id"] == str(kategori.id)
 
         saved_reports = list(await LaporanRepository(db_session).findAll())
         assert len(saved_reports) == 1
         saved_report = saved_reports[0]
         assert saved_report.found_at_location_id == lokasi["id"]
         assert saved_report.user_id == staff.id
+        assert saved_report.barang is not None
+        assert saved_report.barang.kategori_barang_id == kategori.id

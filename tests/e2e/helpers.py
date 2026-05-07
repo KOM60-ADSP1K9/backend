@@ -11,6 +11,7 @@ from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.user_repository import UserRepository
 from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
 from src.infrastructure.services.jwt_token_service import JWTTokenService
+from src.infrastructure.tables.kategori_barang_table import KategoriBarangTable
 from src.infrastructure.tables.lokasi_table import LokasiTable
 
 # ── Constants ────────────────────────────────────────────────────────
@@ -101,6 +102,16 @@ async def seed_verified_staff_with_supervised_lokasi(
         "latitude": lokasi.latitude,
         "longitude": lokasi.longitude,
     }
+
+
+async def seed_kategori_barang(
+    db: AsyncSession, name: str = "Dokumen"
+) -> KategoriBarangTable:
+    """Insert a kategori barang row and return the ORM instance."""
+    kategori = KategoriBarangTable(name=name)
+    db.add(kategori)
+    await db.flush()
+    return kategori
 
 
 def get_auth_header(user: User) -> dict[str, str]:

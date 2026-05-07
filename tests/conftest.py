@@ -36,6 +36,7 @@ def _load_app_modules():
         LaporanHilangTable,
         LaporanTable,
         LaporanTemuanTable,
+        KategoriBarangTable,
         LokasiTable,
         UserTable,
     )
@@ -46,6 +47,7 @@ def _load_app_modules():
         LaporanTable,
         LaporanHilangTable,
         LaporanTemuanTable,
+        KategoriBarangTable,
         LokasiTable,
         UserTable,
     )

@@ -17,7 +17,7 @@ from src.domain.entity.user import User, UserRole
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.repositories.user_repository import UserRepository
 from src.infrastructure.tables.lokasi_table import LokasiTable
-from tests.e2e.helpers import get_auth_header
+from tests.e2e.helpers import get_auth_header, seed_kategori_barang
 
 
 async def seed_verified_user(
@@ -65,6 +65,7 @@ class TestGetAllHomepageLaporan:
         )
         db_session.add(lokasi)
         await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
 
         repository = LaporanRepository(db_session)
         mine = LaporanHilang.New(
@@ -78,6 +79,7 @@ class TestGetAllHomepageLaporan:
                 name="KTP",
                 description="Kartu tanda penduduk",
                 photo="stub://lost-reports/mine.jpg",
+                kategori_barang_id=kategori.id,
             )
         )
         await repository.save(mine)
@@ -171,19 +173,26 @@ class TestGetAllHomepageLaporan:
             "user",
             "is_owned",
         }
-        assert set(own_reports[0].keys()) == expected_keys
-        assert set(own_reports[0]["barang"].keys()) == {
+        assert set(lost_report.keys()) == expected_keys
+        assert set(lost_report["barang"].keys()) == {
             "id",
             "name",
             "description",
             "photo",
+            "kategori_barang_id",
+            "kategori_barang",
             "created_at",
             "updated_at",
         }
-        assert set(own_reports[0]["user"].keys()) == {"email", "nim", "nip"}
-        assert own_reports[0]["user"]["email"] == current_user.email
-        assert own_reports[0]["user"]["nim"] == current_user.nim
-        assert own_reports[0]["user"]["nip"] is None
+        assert lost_report["barang"]["kategori_barang_id"] == str(kategori.id)
+        assert lost_report["barang"]["kategori_barang"] == {
+            "id": str(kategori.id),
+            "name": "Dokumen",
+        }
+        assert set(lost_report["user"].keys()) == {"email", "nim", "nip"}
+        assert lost_report["user"]["email"] == current_user.email
+        assert lost_report["user"]["nim"] == current_user.nim
+        assert lost_report["user"]["nip"] is None
         assert foreign_reports[0]["user"]["email"] == other_user.email
 
     @pytest.mark.asyncio

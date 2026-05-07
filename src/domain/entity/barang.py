@@ -16,6 +16,7 @@ class Barang:
     photo: str
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+    kategori_barang_id: UUID | None = None
 
     MAX_PHOTO_SIZE_MB: ClassVar[int] = 5
     ALLOWED_PHOTO_TYPES: ClassVar[tuple[str, str]] = ("image/jpeg", "image/png")
@@ -28,6 +29,7 @@ class Barang:
         photo: str,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
+        kategori_barang_id: UUID | None = None,
     ) -> None:
         self.id = id
         self.name = name
@@ -35,6 +37,7 @@ class Barang:
         self.photo = photo
         self.created_at = created_at
         self.updated_at = updated_at
+        self.kategori_barang_id = kategori_barang_id
 
     def update(
         self,
@@ -57,6 +60,7 @@ class Barang:
         name: str,
         description: str,
         photo: str,
+        kategori_barang_id: UUID | None = None,
     ) -> Self:
         """Create a new barang."""
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -67,4 +71,5 @@ class Barang:
             photo=photo,
             created_at=now,
             updated_at=now,
+            kategori_barang_id=kategori_barang_id,
         )

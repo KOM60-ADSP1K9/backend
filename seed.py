@@ -10,7 +10,7 @@ from uuid import UUID
 from src.core import db_seeder
 from src.domain.entity.user import UserRole
 from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
-from src.infrastructure.tables import LokasiTable, UserTable
+from src.infrastructure.tables import KategoriBarangTable, LokasiTable, UserTable
 
 PASSWORD_HASHER = BcryptPasswordService()
 STAFF2_SUPERVISED_LOKASI_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -47,6 +47,19 @@ LOKASI_SEED_DATA: list[dict[str, Any]] = [
         "latitude": -6.558878546805951,
         "longitude": 106.7270456472907,
     },
+]
+
+KATEGORI_BARANG_SEED_DATA: list[dict[str, Any]] = [
+    {"name": "Electronics"},
+    {"name": "Documents"},
+    {"name": "Bags"},
+    {"name": "Clothing"},
+    {"name": "Keys"},
+    {"name": "Vehicles"},
+    {"name": "Wallets"},
+    {"name": "Books"},
+    {"name": "Pets"},
+    {"name": "Others"},
 ]
 
 
@@ -102,6 +115,7 @@ def build_user_seed_data() -> list[dict[str, Any]]:
 
 SEED_PLAN: list[tuple[str, type[Any], Callable[[], list[dict[str, Any]]]]] = [
     ("lokasi", LokasiTable, lambda: LOKASI_SEED_DATA),
+    ("kategori_barang", KategoriBarangTable, lambda: KATEGORI_BARANG_SEED_DATA),
     ("users", UserTable, build_user_seed_data),
 ]
 
