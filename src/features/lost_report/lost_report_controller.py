@@ -33,6 +33,7 @@ class BarangResponseDto(BaseModel):
     name: str
     description: str
     photo: str
+    kategori_barang_id: UUID | None
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -74,6 +75,7 @@ async def create_lost_report(
     photo: UploadFile = File(...),
     barang_name: str = Form(...),
     barang_description: str = Form(...),
+    kategori_barang_id: UUID = Form(...),
     lost_at_location_id: UUID = Form(...),
     lost_at_date: date = Form(...),
     current_user: User = Depends(require_role(UserRole.MAHASISWA)),
@@ -96,6 +98,7 @@ async def create_lost_report(
             photo_filename=photo.filename or "photo",
             barang_name=barang_name,
             barang_description=barang_description,
+            kategori_barang_id=kategori_barang_id,
             lost_at_location_id=lost_at_location_id,
             lost_at_date=lost_at_date,
             user_id=current_user.id,

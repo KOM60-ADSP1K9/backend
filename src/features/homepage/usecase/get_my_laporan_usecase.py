@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.infrastructure.tables.barang_table import BarangTable
 from src.infrastructure.tables.laporan_table import LaporanTable
 from src.domain.entity.laporan import LaporanStatus, LaporanType
 
@@ -34,7 +35,12 @@ class GetMyLaporanUsecase:
         offset = (page - 1) * limit
         statement = (
             select(LaporanTable)
-            .options(selectinload(LaporanTable.barang), selectinload(LaporanTable.user))
+            .options(
+                selectinload(LaporanTable.barang).selectinload(
+                    BarangTable.kategori_barang
+                ),
+                selectinload(LaporanTable.user),
+            )
             .where(LaporanTable.user_id == user_id)
             .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
             .offset(offset)

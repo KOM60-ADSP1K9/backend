@@ -18,6 +18,7 @@ class CreateFoundReportRequest:
         photo_filename: str,
         barang_name: str,
         barang_description: str,
+        kategori_barang_id: UUID,
         found_at_location_id: UUID,
         found_at_date: date,
         user_id: UUID,
@@ -26,6 +27,7 @@ class CreateFoundReportRequest:
         self.photo_filename = photo_filename
         self.barang_name = barang_name
         self.barang_description = barang_description
+        self.kategori_barang_id = kategori_barang_id
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date
         self.user_id = user_id
@@ -66,6 +68,7 @@ class CreateFoundReportUsecase:
             name=request.barang_name,
             description=request.barang_description,
             photo=photo_path,
+            kategori_barang_id=request.kategori_barang_id,
         )
 
         laporan = LaporanTemuan.New(

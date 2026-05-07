@@ -38,6 +38,13 @@ class HomepageLaporanResponseDto(BaseModel):
     is_owned: bool
 
 
+class KategoriBarangResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+
+
 class BarangResponseDto(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +52,8 @@ class BarangResponseDto(BaseModel):
     name: str
     description: str
     photo: str
+    kategori_barang_id: UUID | None = None
+    kategori_barang: KategoriBarangResponseDto | None = None
     created_at: datetime | None
     updated_at: datetime | None
 

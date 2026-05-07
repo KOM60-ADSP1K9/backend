@@ -17,6 +17,7 @@ from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.tables.lokasi_table import LokasiTable
 from tests.e2e.helpers import (
     get_auth_header,
+    seed_kategori_barang,
     seed_verified_mahasiswa,
     seed_verified_staff,
 )
@@ -40,6 +41,7 @@ class TestCreateLostReport:
         )
         db_session.add(lokasi)
         await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/lost-reports",
@@ -47,6 +49,7 @@ class TestCreateLostReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "lost_at_location_id": str(lokasi.id),
                 "lost_at_date": "2026-04-29",
             },
@@ -61,6 +64,7 @@ class TestCreateLostReport:
         assert body["data"]["status"] == "active"
         assert body["data"]["barang"]["name"] == "KTP"
         assert body["data"]["barang"]["description"] == "Kartu tanda penduduk"
+        assert body["data"]["barang"]["kategori_barang_id"] == str(kategori.id)
         assert body["data"]["barang"]["photo"] == (
             "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
         )
@@ -85,6 +89,7 @@ class TestCreateLostReport:
         assert saved_report.barang is not None
         assert saved_report.barang.name == "KTP"
         assert saved_report.barang.description == "Kartu tanda penduduk"
+        assert saved_report.barang.kategori_barang_id == kategori.id
         assert saved_report.barang.photo == (
             "https://placehold.co/600x400?text=stub://lost-reports/lost-card.jpg"
         )
@@ -98,6 +103,7 @@ class TestCreateLostReport:
         """Staff should be forbidden from creating lost reports."""
         staff = await seed_verified_staff(db_session)
         headers = get_auth_header(staff)
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/lost-reports",
@@ -105,6 +111,7 @@ class TestCreateLostReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "lost_at_location_id": str(uuid4()),
                 "lost_at_date": "2026-04-29",
             },
@@ -121,6 +128,7 @@ class TestCreateLostReport:
         """A missing lokasi should return 404 and not create a report."""
         mahasiswa = await seed_verified_mahasiswa(db_session)
         headers = get_auth_header(mahasiswa)
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/lost-reports",
@@ -128,6 +136,7 @@ class TestCreateLostReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "lost_at_location_id": str(uuid4()),
                 "lost_at_date": "2026-04-29",
             },
@@ -150,6 +159,7 @@ class TestCreateLostReport:
         """Omitting lokasi id should fail validation before usecase execution."""
         mahasiswa = await seed_verified_mahasiswa(db_session)
         headers = get_auth_header(mahasiswa)
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/lost-reports",
@@ -157,6 +167,7 @@ class TestCreateLostReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "lost_at_date": "2026-04-29",
             },
             files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},
@@ -190,6 +201,7 @@ class TestCreateLostReport:
         )
         db_session.add(lokasi)
         await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
 
         resp = await client.post(
             "/lost-reports",
@@ -197,6 +209,7 @@ class TestCreateLostReport:
             data={
                 "barang_name": "KTP",
                 "barang_description": "Kartu tanda penduduk",
+                "kategori_barang_id": str(kategori.id),
                 "lost_at_location_id": str(lokasi.id),
             },
             files={"photo": ("lost-card.jpg", b"fake-photo-bytes", "image/jpeg")},

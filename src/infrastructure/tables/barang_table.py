@@ -13,6 +13,7 @@ from src.domain.entity.barang import Barang
 
 if TYPE_CHECKING:
     from src.infrastructure.tables.laporan_table import LaporanTable
+    from src.infrastructure.tables.kategori_barang_table import KategoriBarangTable
 
 
 class BarangTable(Base):
@@ -29,6 +30,12 @@ class BarangTable(Base):
         ForeignKey("laporan.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
+    )
+
+    kategori_barang_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("kategori_barang.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -55,6 +62,11 @@ class BarangTable(Base):
         back_populates="barang",
     )
 
+    kategori_barang: Mapped["KategoriBarangTable | None"] = relationship(
+        "KategoriBarangTable",
+        lazy="selectin",
+    )
+
     def to_domain(self) -> Barang:
         return Barang(
             id=self.id,
@@ -63,6 +75,7 @@ class BarangTable(Base):
             photo=self.photo,
             created_at=self.created_at,
             updated_at=self.updated_at,
+            kategori_barang_id=self.kategori_barang_id,
         )
 
     @classmethod
@@ -71,6 +84,7 @@ class BarangTable(Base):
         return cls(
             id=barang.id,
             laporan_id=laporan_id,
+            kategori_barang_id=barang.kategori_barang_id,
             name=barang.name,
             description=barang.description,
             photo=barang.photo,

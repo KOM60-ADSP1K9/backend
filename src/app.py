@@ -10,6 +10,9 @@ from src.features.auth.auth_controller import auth_router
 from src.features.found_report.found_report_controller import found_report_router
 from src.features.lost_report.lost_report_controller import lost_report_router
 from src.features.lokasi.lokasi_controller import lokasi_router
+from src.features.kategori_barang.kategori_barang_controller import (
+    kategori_barang_router,
+)
 from src.features.user.user_controller import user_router
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -41,3 +44,6 @@ app.include_router(user_router)
 
 # Lokasi module (protected – authenticated)
 app.include_router(lokasi_router)
+
+# Kategori barang module (protected – authenticated)
+app.include_router(kategori_barang_router)
