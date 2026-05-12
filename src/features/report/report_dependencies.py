@@ -7,6 +7,9 @@ from src.application.i_storage_service import IStorageService
 from src.core.db import get_async_db_session
 from src.domain.entity.i_kategori_barang_repository import IKategoriBarangRepository
 from src.domain.entity.i_lokasi_repository import ILokasiRepository
+from src.features.report.usecase.delete_laporan_usecase import (
+    DeleteLaporanUsecase,
+)
 from src.features.report.usecase.update_laporan_barang_usecase import (
     UpdateLaporanBarangUsecase,
 )
@@ -73,4 +76,14 @@ def get_update_laporan_details_usecase(
     return UpdateLaporanDetailsUsecase(
         laporan_repository=laporan_repository,
         lokasi_repository=lokasi_repository,
+    )
+
+
+def get_delete_laporan_usecase(
+    laporan_repository: LaporanRepository = Depends(get_laporan_repository),
+    storage_service: IStorageService = Depends(get_storage_service),
+) -> DeleteLaporanUsecase:
+    return DeleteLaporanUsecase(
+        laporan_repository=laporan_repository,
+        storage_service=storage_service,
     )

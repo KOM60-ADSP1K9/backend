@@ -68,6 +68,11 @@ class Laporan(ABC):
                 "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
             )
 
+    def assert_can_delete(self) -> None:
+        """Assert that the laporan can be deleted. If not, throw an exception."""
+        if self.status not in {LaporanStatus.DRAFT, LaporanStatus.ACTIVE}:
+            raise ValueError("Can only delete laporan with draft status")
+
     def addBarang(self, barang: Barang) -> None:
         """Attach the barang child entity to this laporan."""
         if self.barang is not None:

@@ -514,7 +514,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
-                "kategori_barang_id": str(uuid4()) + "",
+                "kategori_barang_id": str(uuid4()),
             },
         )
 
@@ -831,3 +831,146 @@ class TestUpdateLaporanDetails:
         )
 
         assert resp.status_code in (401, 403)
+
+
+class TestDeleteLaporan:
+    """DELETE /reports/{laporan_id} – owner-only, draft-only endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_owner_can_delete_draft_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner should be able to delete a draft laporan and its photo."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.DRAFT
+        )
+        original_photo = laporan.barang.photo if laporan.barang is not None else None
+        headers = get_auth_header(owner)
+
+        resp = await client.delete(
+            f"/reports/{laporan.id}",
+            headers=headers,
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan deleted successfully"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is None
+
+        assert original_photo in client.storage_stub.deleted_urls
+
+    @pytest.mark.asyncio
+    async def test_owner_can_delete_active_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner should be able to delete an active laporan and its photo."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.ACTIVE
+        )
+        original_photo = laporan.barang.photo if laporan.barang is not None else None
+        headers = get_auth_header(owner)
+
+        resp = await client.delete(
+            f"/reports/{laporan.id}",
+            headers=headers,
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan deleted successfully"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is None
+
+        assert original_photo in client.storage_stub.deleted_urls
+
+    @pytest.mark.asyncio
+    async def test_non_owner_is_forbidden(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A non-owner must not delete another user's laporan."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.DRAFT
+        )
+        staff = await seed_verified_staff(db_session)
+        headers = get_auth_header(staff)
+
+        resp = await client.delete(
+            f"/reports/{laporan.id}",
+            headers=headers,
+        )
+
+        assert resp.status_code == 403
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert client.storage_stub.deleted_urls == []
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_laporan_does_not_exist(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A missing laporan should return 404."""
+        mahasiswa = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(mahasiswa)
+
+        resp = await client.delete(
+            f"/reports/{uuid4()}",
+            headers=headers,
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Laporan tidak ditemukan"
+
+    @pytest.mark.asyncio
+    async def test_cannot_delete_non_draft_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A laporan that is not in DRAFT status should not be deletable."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.CLAIM_PENDING
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.delete(
+            f"/reports/{laporan.id}",
+            headers=headers,
+        )
+
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.CLAIM_PENDING
+        assert client.storage_stub.deleted_urls == []
+
+    @pytest.mark.asyncio
+    async def test_returns_401_when_unauthenticated(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Missing auth header should return 401/403."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.DRAFT
+        )
+
+        resp = await client.delete(f"/reports/{laporan.id}")
+
+        assert resp.status_code in (401, 403)
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None

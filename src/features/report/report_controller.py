@@ -3,6 +3,7 @@
 PATCH /reports/{laporan_id}/status – Update laporan status (owner only)
 PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
 PATCH /reports/{laporan_id}/details – Update laporan location and date (owner only)
+DELETE /reports/{laporan_id} – Delete a draft laporan (owner only)
 """
 
 import enum
@@ -14,14 +15,19 @@ from pydantic import BaseModel, ConfigDict
 
 from src.core.auth import get_current_user
 from src.core.exceptions import BadRequestException, RequestTooLargeException
-from src.core.http import HTTPDataResponse
+from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.domain.entity.barang import Barang
 from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
 from src.domain.entity.user import User
 from src.features.report.report_dependencies import (
+    get_delete_laporan_usecase,
     get_update_laporan_barang_usecase,
     get_update_laporan_details_usecase,
     get_update_laporan_status_usecase,
+)
+from src.features.report.usecase.delete_laporan_usecase import (
+    DeleteLaporanRequest,
+    DeleteLaporanUsecase,
 )
 from src.features.report.usecase.update_laporan_barang_usecase import (
     UpdateLaporanBarangRequest,
@@ -273,4 +279,27 @@ async def update_laporan_details(
         status="success",
         data=_to_update_laporan_details_response_dto(result.laporan),
         message="Laporan details updated successfully",
+    )
+
+
+@report_router.delete(
+    "/{laporan_id}",
+    response_model=HTTPMessageResponse,
+)
+async def delete_laporan(
+    laporan_id: UUID,
+    current_user: User = Depends(get_current_user),
+    usecase: DeleteLaporanUsecase = Depends(get_delete_laporan_usecase),
+) -> HTTPMessageResponse:
+    """Delete a laporan. Owner only. Allowed only when status is draft or active."""
+    await usecase.execute(
+        DeleteLaporanRequest(
+            laporan_id=laporan_id,
+            user_id=current_user.id,
+        )
+    )
+
+    return HTTPMessageResponse(
+        status="success",
+        message="Laporan deleted successfully",
     )
