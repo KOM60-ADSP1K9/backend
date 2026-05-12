@@ -41,8 +41,13 @@ class Settings:
             "VERIFICATION_SECRET_KEY", self.JWT_SECRET_KEY
         )
         self.R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
-        self.R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY", "")
-        self.R2_SECRET_KEY = os.getenv("R2_SECRET_KEY", "")
+        self.R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+        self.R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+        self.R2_BUCKET = os.getenv("R2_BUCKET", "")
+        self.R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
+        self.FACTORY_STORAGE_TYPE = os.getenv(
+            "FACTORY_STORAGE_TYPE", ""
+        ).lower()  # "r2" or "stub"
 
     @staticmethod
     def _get_required(key: str) -> str:

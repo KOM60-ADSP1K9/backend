@@ -9,3 +9,7 @@ class IStorageService(ABC):
     @abstractmethod
     async def upload_photo(self, content: bytes, filename: str) -> str:
         """Store a photo and return its storage reference."""
+
+    @abstractmethod
+    async def delete_photo(self, photo_url: str) -> None:
+        """Delete a previously uploaded photo by its storage reference."""
