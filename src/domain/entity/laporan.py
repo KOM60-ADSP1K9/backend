@@ -92,6 +92,65 @@ class Laporan(ABC):
                 "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
             )
 
+    def resolve_status_update(self, newStatus: LaporanStatus) -> None:
+        """Transition laporan status and call the appropriate mark_as_* method."""
+        if newStatus == LaporanStatus.ACTIVE:
+            self.mark_as_active()
+        elif newStatus == LaporanStatus.CLAIM_PENDING:
+            self.mark_as_claim_pending()
+        elif newStatus == LaporanStatus.RESOLVED:
+            self.mark_as_resolved()
+        elif newStatus == LaporanStatus.SELF_RESOLVED:
+            self.mark_as_self_resolved()
+        else:
+            raise ValueError(f"Invalid target status: {newStatus}")
+
+    def mark_as_active(self) -> None:
+        """Mark laporan as active and can be claimed or resolved."""
+        if (
+            self.status != LaporanStatus.DRAFT
+            and self.status
+            != LaporanStatus.CLAIM_PENDING  # allow re-activating from claim pending if claim is rejected
+        ):
+            raise ValueError(
+                "Can only mark as active from draft or claim pending status"
+            )
+
+        self.status = LaporanStatus.ACTIVE
+
+    def mark_as_claim_pending(self) -> None:
+        """Mark laporan as claim pending (when there are user claims found report)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as claim pending from active status")
+
+        self.status = LaporanStatus.CLAIM_PENDING
+
+    def mark_as_resolved(self) -> None:
+        """Mark laporan as resolved (found goods back to the user, or lost goods is found)."""
+        if (
+            self.status != LaporanStatus.CLAIM_PENDING
+            and self.status != LaporanStatus.ACTIVE
+        ):
+            raise ValueError(
+                "Can only mark as resolved from active or claim pending status"
+            )
+
+        self.status = LaporanStatus.RESOLVED
+
+    def mark_as_self_resolved(self) -> None:
+        """Mark laporan as self-resolved (user that create the lost report has found the lost item)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as self-resolved from active status")
+
+        self.status = LaporanStatus.SELF_RESOLVED
+
+    def mark_as_closed(self) -> None:
+        """Mark laporan as closed (cancelled, wrong etc)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as closed from active status")
+
+        self.status = LaporanStatus.CLOSED
+
 
 @dataclass
 class LaporanHilang(Laporan):
@@ -152,6 +211,19 @@ class LaporanHilang(Laporan):
             user_id=user_id,
             barang=barang,
         )
+
+    def resolve_status_update(self, newStatus: LaporanStatus) -> None:
+        """Transition laporan status and call the appropriate mark_as_* method."""
+        if newStatus == LaporanStatus.ACTIVE:
+            self.mark_as_active()
+        elif newStatus == LaporanStatus.CLAIM_PENDING:
+            raise ValueError("Cannot mark lost-item laporan as claim pending")
+        elif newStatus == LaporanStatus.RESOLVED:
+            self.mark_as_resolved()
+        elif newStatus == LaporanStatus.SELF_RESOLVED:
+            self.mark_as_self_resolved()
+        else:
+            raise ValueError(f"Invalid target status: {newStatus}")
 
 
 @dataclass
