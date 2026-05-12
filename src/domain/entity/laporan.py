@@ -58,6 +58,16 @@ class Laporan(ABC):
         self.user_id = user_id
         self.barang = barang
 
+    def assert_can_update(self) -> None:
+        """Assert that the laporan can be updated. If not, throw an exception."""
+        if self.status not in {
+            LaporanStatus.DRAFT,
+            LaporanStatus.ACTIVE,
+        }:
+            raise ValueError(
+                "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
+            )
+
     def addBarang(self, barang: Barang) -> None:
         """Attach the barang child entity to this laporan."""
         if self.barang is not None:
@@ -67,7 +77,7 @@ class Laporan(ABC):
 
         self.barang = barang
 
-    def updateBarang(self, barang: Barang) -> None:
+    def updateBarang(self, name: str, description: str, photo: str) -> None:
         """Update the attached barang child entity."""
         if self.barang is None:
             raise ValueError("Barang does not exist")
@@ -75,22 +85,69 @@ class Laporan(ABC):
         self.assert_can_update()
 
         self.barang.update(
-            name=barang.name,
-            description=barang.description,
-            photo=barang.photo,
+            name=name,
+            description=description,
+            photo=photo,
         )
 
-    def assert_can_update(self) -> None:
-        """Assert that the laporan can be updated. If not, throw an exception."""
-        if self.status in {
-            LaporanStatus.CLOSED,
-            LaporanStatus.SELF_RESOLVED,
-            LaporanStatus.CLAIM_PENDING,
-            LaporanStatus.RESOLVED,
-        }:
+    def resolve_status_update(self, newStatus: LaporanStatus) -> None:
+        """Transition laporan status and call the appropriate mark_as_* method."""
+        if newStatus == LaporanStatus.ACTIVE:
+            self.mark_as_active()
+        elif newStatus == LaporanStatus.CLAIM_PENDING:
+            self.mark_as_claim_pending()
+        elif newStatus == LaporanStatus.RESOLVED:
+            self.mark_as_resolved()
+        elif newStatus == LaporanStatus.SELF_RESOLVED:
+            self.mark_as_self_resolved()
+        else:
+            raise ValueError(f"Invalid target status: {newStatus}")
+
+    def mark_as_active(self) -> None:
+        """Mark laporan as active and can be claimed or resolved."""
+        if (
+            self.status != LaporanStatus.DRAFT
+            and self.status
+            != LaporanStatus.CLAIM_PENDING  # allow re-activating from claim pending if claim is rejected
+        ):
             raise ValueError(
-                "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
+                "Can only mark as active from draft or claim pending status"
             )
+
+        self.status = LaporanStatus.ACTIVE
+
+    def mark_as_claim_pending(self) -> None:
+        """Mark laporan as claim pending (when there are user claims found report)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as claim pending from active status")
+
+        self.status = LaporanStatus.CLAIM_PENDING
+
+    def mark_as_resolved(self) -> None:
+        """Mark laporan as resolved (found goods back to the user, or lost goods is found)."""
+        if (
+            self.status != LaporanStatus.CLAIM_PENDING
+            and self.status != LaporanStatus.ACTIVE
+        ):
+            raise ValueError(
+                "Can only mark as resolved from active or claim pending status"
+            )
+
+        self.status = LaporanStatus.RESOLVED
+
+    def mark_as_self_resolved(self) -> None:
+        """Mark laporan as self-resolved (user that create the lost report has found the lost item)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as self-resolved from active status")
+
+        self.status = LaporanStatus.SELF_RESOLVED
+
+    def mark_as_closed(self) -> None:
+        """Mark laporan as closed (cancelled, wrong etc)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as closed from active status")
+
+        self.status = LaporanStatus.CLOSED
 
 
 @dataclass
@@ -153,6 +210,28 @@ class LaporanHilang(Laporan):
             barang=barang,
         )
 
+    def update(
+        self, lost_at_location_id: UUID | None, lost_at_date: datetime.date | None
+    ) -> None:
+        """Update laporan hilang details."""
+        self.assert_can_update()
+
+        self.lost_at_location_id = lost_at_location_id
+        self.lost_at_date = lost_at_date
+
+    def resolve_status_update(self, newStatus: LaporanStatus) -> None:
+        """Transition laporan status and call the appropriate mark_as_* method."""
+        if newStatus == LaporanStatus.ACTIVE:
+            self.mark_as_active()
+        elif newStatus == LaporanStatus.CLAIM_PENDING:
+            raise ValueError("Cannot mark lost-item laporan as claim pending")
+        elif newStatus == LaporanStatus.RESOLVED:
+            self.mark_as_resolved()
+        elif newStatus == LaporanStatus.SELF_RESOLVED:
+            self.mark_as_self_resolved()
+        else:
+            raise ValueError(f"Invalid target status: {newStatus}")
+
 
 @dataclass
 class LaporanTemuan(Laporan):
@@ -213,3 +292,12 @@ class LaporanTemuan(Laporan):
             user_id=user_id,
             barang=barang,
         )
+
+    def update(
+        self, found_at_location_id: UUID | None, found_at_date: datetime.date | None
+    ) -> None:
+        """Update laporan temuan details."""
+        self.assert_can_update()
+
+        self.found_at_location_id = found_at_location_id
+        self.found_at_date = found_at_date

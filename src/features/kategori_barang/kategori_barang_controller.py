@@ -7,12 +7,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
+from pyrate_limiter import Duration
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth import get_current_user
 from src.core.db import get_async_db_session
 from src.core.http import HTTPDataResponse
 from src.domain.entity.user import User
+from src.core.rate_limiter import rate_limit_dependency
 from src.features.kategori_barang.usecase.get_all_kategori_barang_usecase import (
     GetAllKategoriBarangUsecase,
 )
@@ -37,6 +39,7 @@ class KategoriBarangResponseDto(BaseModel):
 async def get_all_kategori_barang(
     _current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db_session),
+    dependencies=rate_limit_dependency(100, Duration.MINUTE * 10),
 ) -> HTTPDataResponse[list[KategoriBarangResponseDto]]:
     """Get all kategori barang. Requires authentication."""
     usecase = GetAllKategoriBarangUsecase(
