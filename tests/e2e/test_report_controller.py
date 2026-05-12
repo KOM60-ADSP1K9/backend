@@ -344,6 +344,7 @@ class TestUpdateLaporanBarang:
         owner = await seed_verified_mahasiswa(db_session)
         laporan = await _seed_lost_laporan(db_session, owner)
         new_kategori = await seed_kategori_barang(db_session, name="Identitas")
+        original_photo = laporan.barang.photo if laporan.barang is not None else None
         headers = get_auth_header(owner)
 
         resp = await client.patch(
@@ -378,6 +379,8 @@ class TestUpdateLaporanBarang:
             "https://placehold.co/600x400?text=stub://lost-reports/new-card.jpg"
         )
 
+        assert original_photo in client.storage_stub.deleted_urls
+
     @pytest.mark.asyncio
     async def test_owner_can_update_barang_without_photo(
         self, client: AsyncClient, db_session: AsyncSession
@@ -410,6 +413,8 @@ class TestUpdateLaporanBarang:
         assert reloaded.barang is not None
         assert reloaded.barang.photo == original_photo
         assert reloaded.barang.name == "KTM"
+
+        assert client.storage_stub.deleted_urls == []
 
     @pytest.mark.asyncio
     async def test_non_owner_is_forbidden(
