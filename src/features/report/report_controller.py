@@ -167,6 +167,7 @@ async def update_laporan_barang(
     laporan_id: UUID,
     barang_name: str = Form(...),
     barang_description: str = Form(...),
+    kategori_barang_id: UUID = Form(...),
     photo: UploadFile | None = File(None),
     current_user: User = Depends(get_current_user),
     usecase: UpdateLaporanBarangUsecase = Depends(get_update_laporan_barang_usecase),
@@ -194,6 +195,7 @@ async def update_laporan_barang(
             user_id=current_user.id,
             barang_name=barang_name,
             barang_description=barang_description,
+            kategori_barang_id=kategori_barang_id,
             photo_content=photo_content,
             photo_filename=photo_filename,
         )

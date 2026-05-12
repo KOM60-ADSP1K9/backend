@@ -19,6 +19,7 @@ class UpdateLaporanBarangRequest:
         user_id: UUID,
         barang_name: str,
         barang_description: str,
+        kategori_barang_id: UUID,
         photo_content: bytes | None,
         photo_filename: str | None,
     ) -> None:
@@ -26,6 +27,7 @@ class UpdateLaporanBarangRequest:
         self.user_id = user_id
         self.barang_name = barang_name
         self.barang_description = barang_description
+        self.kategori_barang_id = kategori_barang_id
         self.photo_content = photo_content
         self.photo_filename = photo_filename
 
@@ -75,6 +77,7 @@ class UpdateLaporanBarangUsecase:
                 name=request.barang_name,
                 description=request.barang_description,
                 photo=photo_path,
+                kategori_barang_id=request.kategori_barang_id,
             )
         except ValueError as exc:
             raise BadRequestException(str(exc)) from exc

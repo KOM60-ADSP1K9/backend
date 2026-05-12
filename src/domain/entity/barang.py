@@ -44,6 +44,7 @@ class Barang:
         name: str | None = None,
         description: str | None = None,
         photo: str | None = None,
+        kategori_barang_id: UUID | None = None,
     ) -> None:
         """Update the barang attributes."""
         if name is not None:
@@ -52,6 +53,8 @@ class Barang:
             self.description = description
         if photo is not None:
             self.photo = photo
+        if kategori_barang_id is not None:
+            self.kategori_barang_id = kategori_barang_id
         self.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
     @classmethod

@@ -340,9 +340,10 @@ class TestUpdateLaporanBarang:
     async def test_owner_can_update_barang_with_new_photo(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Owner should be able to update barang name, description, and photo."""
+        """Owner should be able to update barang name, description, photo, and kategori."""
         owner = await seed_verified_mahasiswa(db_session)
         laporan = await _seed_lost_laporan(db_session, owner)
+        new_kategori = await seed_kategori_barang(db_session, name="Identitas")
         headers = get_auth_header(owner)
 
         resp = await client.patch(
@@ -351,6 +352,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(new_kategori.id),
             },
             files={"photo": ("new-card.jpg", b"new-photo-bytes", "image/jpeg")},
         )
@@ -361,6 +363,7 @@ class TestUpdateLaporanBarang:
         assert body["message"] == "Laporan barang updated successfully"
         assert body["data"]["barang"]["name"] == "KTM"
         assert body["data"]["barang"]["description"] == "Kartu tanda mahasiswa"
+        assert body["data"]["barang"]["kategori_barang_id"] == str(new_kategori.id)
         assert body["data"]["barang"]["photo"] == (
             "https://placehold.co/600x400?text=stub://lost-reports/new-card.jpg"
         )
@@ -370,6 +373,7 @@ class TestUpdateLaporanBarang:
         assert reloaded.barang is not None
         assert reloaded.barang.name == "KTM"
         assert reloaded.barang.description == "Kartu tanda mahasiswa"
+        assert reloaded.barang.kategori_barang_id == new_kategori.id
         assert reloaded.barang.photo == (
             "https://placehold.co/600x400?text=stub://lost-reports/new-card.jpg"
         )
@@ -382,6 +386,9 @@ class TestUpdateLaporanBarang:
         owner = await seed_verified_mahasiswa(db_session)
         laporan = await _seed_lost_laporan(db_session, owner)
         original_photo = laporan.barang.photo if laporan.barang is not None else None
+        original_kategori = (
+            laporan.barang.kategori_barang_id if laporan.barang is not None else None
+        )
         headers = get_auth_header(owner)
 
         resp = await client.patch(
@@ -390,6 +397,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(original_kategori),
             },
         )
 
@@ -419,6 +427,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "Hacked",
                 "barang_description": "Hacked",
+                "kategori_barang_id": str(uuid4()),
             },
         )
 
@@ -445,6 +454,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "Whatever",
                 "barang_description": "Whatever",
+                "kategori_barang_id": str(uuid4()),
             },
         )
 
@@ -470,6 +480,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(uuid4()),
             },
         )
 
@@ -497,6 +508,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(uuid4()),
             },
             files={"photo": ("bad.gif", b"fake-photo-bytes", "image/gif")},
         )
@@ -538,6 +550,7 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(uuid4()),
             },
         )
 

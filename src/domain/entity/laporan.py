@@ -77,7 +77,13 @@ class Laporan(ABC):
 
         self.barang = barang
 
-    def updateBarang(self, name: str, description: str, photo: str) -> None:
+    def updateBarang(
+        self,
+        name: str,
+        description: str,
+        photo: str,
+        kategori_barang_id: UUID,
+    ) -> None:
         """Update the attached barang child entity."""
         if self.barang is None:
             raise ValueError("Barang does not exist")
@@ -88,6 +94,7 @@ class Laporan(ABC):
             name=name,
             description=description,
             photo=photo,
+            kategori_barang_id=kategori_barang_id,
         )
 
     def resolve_status_update(self, newStatus: LaporanStatus) -> None:
