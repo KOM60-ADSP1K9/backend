@@ -58,6 +58,16 @@ class Laporan(ABC):
         self.user_id = user_id
         self.barang = barang
 
+    def assert_can_update(self) -> None:
+        """Assert that the laporan can be updated. If not, throw an exception."""
+        if self.status not in {
+            LaporanStatus.DRAFT,
+            LaporanStatus.ACTIVE,
+        }:
+            raise ValueError(
+                "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
+            )
+
     def addBarang(self, barang: Barang) -> None:
         """Attach the barang child entity to this laporan."""
         if self.barang is not None:
@@ -79,16 +89,6 @@ class Laporan(ABC):
             description=description,
             photo=photo,
         )
-
-    def assert_can_update(self) -> None:
-        """Assert that the laporan can be updated. If not, throw an exception."""
-        if self.status not in {
-            LaporanStatus.DRAFT,
-            LaporanStatus.ACTIVE,
-        }:
-            raise ValueError(
-                "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
-            )
 
     def resolve_status_update(self, newStatus: LaporanStatus) -> None:
         """Transition laporan status and call the appropriate mark_as_* method."""
@@ -210,6 +210,15 @@ class LaporanHilang(Laporan):
             barang=barang,
         )
 
+    def update(
+        self, lost_at_location_id: UUID | None, lost_at_date: datetime.date | None
+    ) -> None:
+        """Update laporan hilang details."""
+        self.assert_can_update()
+
+        self.lost_at_location_id = lost_at_location_id
+        self.lost_at_date = lost_at_date
+
     def resolve_status_update(self, newStatus: LaporanStatus) -> None:
         """Transition laporan status and call the appropriate mark_as_* method."""
         if newStatus == LaporanStatus.ACTIVE:
@@ -283,3 +292,12 @@ class LaporanTemuan(Laporan):
             user_id=user_id,
             barang=barang,
         )
+
+    def update(
+        self, found_at_location_id: UUID | None, found_at_date: datetime.date | None
+    ) -> None:
+        """Update laporan temuan details."""
+        self.assert_can_update()
+
+        self.found_at_location_id = found_at_location_id
+        self.found_at_date = found_at_date

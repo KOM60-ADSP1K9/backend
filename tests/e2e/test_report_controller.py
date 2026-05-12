@@ -4,6 +4,7 @@ Endpoints under test
 ────────────────────
 PATCH /reports/{laporan_id}/status – Update laporan status (owner only)
 PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
+PATCH /reports/{laporan_id}/details – Update laporan location and date (owner only)
 """
 
 from datetime import date
@@ -537,6 +538,247 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
+            },
+        )
+
+        assert resp.status_code in (401, 403)
+
+
+class TestUpdateLaporanDetails:
+    """PATCH /reports/{laporan_id}/details – owner-only endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_owner_can_update_lost_laporan_details(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner of a hilang laporan should update lost_at_location_id and lost_at_date."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        new_lokasi = LokasiTable(
+            name="Gedung C",
+            latitude=-6.500000,
+            longitude=106.700000,
+        )
+        db_session.add(new_lokasi)
+        await db_session.flush()
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(new_lokasi.id),
+                "date": "2026-05-01",
+            },
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan details updated successfully"
+        assert body["data"]["lost_at_location_id"] == str(new_lokasi.id)
+        assert body["data"]["lost_at_date"] == "2026-05-01"
+        assert body["data"]["found_at_location_id"] is None
+        assert body["data"]["found_at_date"] is None
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanHilang)
+        assert reloaded.lost_at_location_id == new_lokasi.id
+        assert reloaded.lost_at_date == date(2026, 5, 1)
+
+    @pytest.mark.asyncio
+    async def test_owner_can_update_found_laporan_details(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner of a temuan laporan should update found_at_location_id and found_at_date."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_found_laporan(db_session, owner)
+        new_lokasi = LokasiTable(
+            name="Gedung D",
+            latitude=-6.510000,
+            longitude=106.710000,
+        )
+        db_session.add(new_lokasi)
+        await db_session.flush()
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(new_lokasi.id),
+                "date": "2026-05-02",
+            },
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["found_at_location_id"] == str(new_lokasi.id)
+        assert body["data"]["found_at_date"] == "2026-05-02"
+        assert body["data"]["lost_at_location_id"] is None
+        assert body["data"]["lost_at_date"] is None
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanTemuan)
+        assert reloaded.found_at_location_id == new_lokasi.id
+        assert reloaded.found_at_date == date(2026, 5, 2)
+
+    @pytest.mark.asyncio
+    async def test_non_owner_is_forbidden(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A non-owner should be forbidden from updating laporan details."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        staff = await seed_verified_staff(db_session)
+        new_lokasi = LokasiTable(
+            name="Gedung E",
+            latitude=-6.520000,
+            longitude=106.720000,
+        )
+        db_session.add(new_lokasi)
+        await db_session.flush()
+        headers = get_auth_header(staff)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(new_lokasi.id),
+                "date": "2026-05-01",
+            },
+        )
+
+        assert resp.status_code == 403
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanHilang)
+        assert reloaded.lost_at_date == date(2026, 4, 29)
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_laporan_does_not_exist(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A missing laporan should return 404."""
+        mahasiswa = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(mahasiswa)
+
+        resp = await client.patch(
+            f"/reports/{uuid4()}/details",
+            headers=headers,
+            json={
+                "location_id": str(uuid4()),
+                "date": "2026-05-01",
+            },
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Laporan tidak ditemukan"
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_location_does_not_exist(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A missing lokasi should return 404 and not mutate the laporan."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(uuid4()),
+                "date": "2026-05-01",
+            },
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Lokasi tidak ditemukan"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanHilang)
+        assert reloaded.lost_at_date == date(2026, 4, 29)
+
+    @pytest.mark.asyncio
+    async def test_cannot_update_details_on_terminal_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A laporan in a terminal status cannot have its details updated."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.SELF_RESOLVED
+        )
+        new_lokasi = LokasiTable(
+            name="Gedung F",
+            latitude=-6.530000,
+            longitude=106.730000,
+        )
+        db_session.add(new_lokasi)
+        await db_session.flush()
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(new_lokasi.id),
+                "date": "2026-05-01",
+            },
+        )
+
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanHilang)
+        assert reloaded.lost_at_date == date(2026, 4, 29)
+
+    @pytest.mark.asyncio
+    async def test_returns_422_when_required_fields_missing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Omitting date should fail validation before usecase execution."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={"location_id": str(uuid4())},
+        )
+
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Validation failed"
+
+    @pytest.mark.asyncio
+    async def test_returns_401_when_unauthenticated(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Missing auth header should return 401/403."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            json={
+                "location_id": str(uuid4()),
+                "date": "2026-05-01",
             },
         )
 
