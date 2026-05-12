@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from uuid import UUID
 
 from sqlalchemy import asc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,3 +19,12 @@ class KategoriBarangRepository(IKategoriBarangRepository):
         )
         rows = result.scalars().all()
         return [row.to_domain() for row in rows]
+
+    async def find_by_id(self, kategori_id: UUID) -> KategoriBarang | None:
+        result = await self.db.execute(
+            select(KategoriBarangTable).where(KategoriBarangTable.id == kategori_id)
+        )
+        row = result.scalars().first()
+        if row is None:
+            return None
+        return row.to_domain()

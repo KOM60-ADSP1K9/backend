@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.i_storage_service import IStorageService
 from src.core.db import get_async_db_session
+from src.domain.entity.i_kategori_barang_repository import IKategoriBarangRepository
 from src.domain.entity.i_lokasi_repository import ILokasiRepository
 from src.features.report.usecase.update_laporan_barang_usecase import (
     UpdateLaporanBarangUsecase,
@@ -14,6 +15,9 @@ from src.features.report.usecase.update_laporan_details_usecase import (
 )
 from src.features.report.usecase.update_laporan_status_usecase import (
     UpdateLaporanStatusUsecase,
+)
+from src.infrastructure.repositories.kategori_barang_repository import (
+    KategoriBarangRepository,
 )
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.repositories.lokasi_repository import LokasiRepository
@@ -32,6 +36,12 @@ def get_lokasi_repository(
     return LokasiRepository(db)
 
 
+def get_kategori_barang_repository(
+    db: AsyncSession = Depends(get_async_db_session),
+) -> KategoriBarangRepository:
+    return KategoriBarangRepository(db)
+
+
 def get_storage_service() -> IStorageService:
     return create_storage_service()
 
@@ -44,10 +54,14 @@ def get_update_laporan_status_usecase(
 
 def get_update_laporan_barang_usecase(
     laporan_repository: LaporanRepository = Depends(get_laporan_repository),
+    kategori_barang_repository: IKategoriBarangRepository = Depends(
+        get_kategori_barang_repository
+    ),
     storage_service: IStorageService = Depends(get_storage_service),
 ) -> UpdateLaporanBarangUsecase:
     return UpdateLaporanBarangUsecase(
         laporan_repository=laporan_repository,
+        kategori_barang_repository=kategori_barang_repository,
         storage_service=storage_service,
     )
 

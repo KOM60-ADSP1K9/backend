@@ -8,6 +8,7 @@ from src.core.exceptions import (
     BadRequestException,
     NotFoundException,
 )
+from src.domain.entity.i_kategori_barang_repository import IKategoriBarangRepository
 from src.domain.entity.i_laporan_repository import ILaporanRepository
 from src.domain.entity.laporan import Laporan
 
@@ -43,9 +44,11 @@ class UpdateLaporanBarangUsecase:
     def __init__(
         self,
         laporan_repository: ILaporanRepository,
+        kategori_barang_repository: IKategoriBarangRepository,
         storage_service: IStorageService,
     ) -> None:
         self._laporan_repository = laporan_repository
+        self._kategori_barang_repository = kategori_barang_repository
         self._storage_service = storage_service
 
     async def execute(
@@ -63,6 +66,12 @@ class UpdateLaporanBarangUsecase:
 
         if laporan.barang is None:
             raise NotFoundException("Barang tidak ditemukan")
+
+        kategori = await self._kategori_barang_repository.find_by_id(
+            request.kategori_barang_id
+        )
+        if kategori is None:
+            raise NotFoundException("Kategori barang tidak ditemukan")
 
         previous_photo = laporan.barang.photo
         if request.photo_content is not None:

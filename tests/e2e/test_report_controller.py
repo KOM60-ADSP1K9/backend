@@ -477,6 +477,7 @@ class TestUpdateLaporanBarang:
         laporan = await _seed_lost_laporan(
             db_session, owner, status=LaporanStatus.SELF_RESOLVED
         )
+        kategori = laporan.barang.kategori_barang_id
         headers = get_auth_header(owner)
 
         resp = await client.patch(
@@ -485,13 +486,42 @@ class TestUpdateLaporanBarang:
             data={
                 "barang_name": "KTM",
                 "barang_description": "Kartu tanda mahasiswa",
-                "kategori_barang_id": str(uuid4()),
+                "kategori_barang_id": str(kategori),
             },
         )
 
         assert resp.status_code == 400
         body = resp.json()
         assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.barang is not None
+        assert reloaded.barang.name == "KTP"
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_kategori_does_not_exist(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A missing kategori barang should return 404 and not mutate the laporan."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+                "kategori_barang_id": str(uuid4()) + "",
+            },
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Kategori barang tidak ditemukan"
 
         reloaded = await LaporanRepository(db_session).findById(laporan.id)
         assert reloaded is not None
