@@ -123,14 +123,33 @@ async def client(db_session: AsyncSession):
     An ``httpx.AsyncClient`` that speaks to the FastAPI app in-process.
     The app's ``get_async_db_session`` dependency is overridden so
     every request inside a single test shares the same session—and
-    therefore the same data scope.
+    therefore the same data scope. All ``get_storage_service``
+    providers are pinned to ``StubStorageService`` so tests never
+    hit real object storage even if the production wiring changes.
     """
     from src.app import app
+    from src.application.i_storage_service import IStorageService
+    from src.features.found_report.found_report_dependencies import (
+        get_storage_service as get_found_report_storage_service,
+    )
+    from src.features.lost_report.lost_report_dependencies import (
+        get_storage_service as get_lost_report_storage_service,
+    )
+    from src.features.report.report_dependencies import (
+        get_storage_service as get_report_storage_service,
+    )
+    from src.infrastructure.services.stub_storage_service import StubStorageService
 
     async def _override_db():
         yield db_session
 
+    def _override_storage() -> IStorageService:
+        return StubStorageService()
+
     app.dependency_overrides[get_async_db_session] = _override_db
+    app.dependency_overrides[get_found_report_storage_service] = _override_storage
+    app.dependency_overrides[get_lost_report_storage_service] = _override_storage
+    app.dependency_overrides[get_report_storage_service] = _override_storage
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

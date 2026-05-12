@@ -2,7 +2,8 @@
 
 Endpoints under test
 ────────────────────
-PATCH /reports/{laporan_id}/status – Update laporan status (owner or staff)
+PATCH /reports/{laporan_id}/status – Update laporan status (owner only)
+PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
 """
 
 from datetime import date
@@ -326,6 +327,217 @@ class TestUpdateLaporanStatus:
         resp = await client.patch(
             f"/reports/{laporan.id}/status",
             json={"status": LaporanStatus.SELF_RESOLVED.value},
+        )
+
+        assert resp.status_code in (401, 403)
+
+
+class TestUpdateLaporanBarang:
+    """PATCH /reports/{laporan_id}/barang – owner-only endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_owner_can_update_barang_with_new_photo(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner should be able to update barang name, description, and photo."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+            },
+            files={"photo": ("new-card.jpg", b"new-photo-bytes", "image/jpeg")},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan barang updated successfully"
+        assert body["data"]["barang"]["name"] == "KTM"
+        assert body["data"]["barang"]["description"] == "Kartu tanda mahasiswa"
+        assert body["data"]["barang"]["photo"] == (
+            "https://placehold.co/600x400?text=stub://lost-reports/new-card.jpg"
+        )
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.barang is not None
+        assert reloaded.barang.name == "KTM"
+        assert reloaded.barang.description == "Kartu tanda mahasiswa"
+        assert reloaded.barang.photo == (
+            "https://placehold.co/600x400?text=stub://lost-reports/new-card.jpg"
+        )
+
+    @pytest.mark.asyncio
+    async def test_owner_can_update_barang_without_photo(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Omitting photo should keep the existing photo intact."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        original_photo = laporan.barang.photo if laporan.barang is not None else None
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+            },
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["barang"]["photo"] == original_photo
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.barang is not None
+        assert reloaded.barang.photo == original_photo
+        assert reloaded.barang.name == "KTM"
+
+    @pytest.mark.asyncio
+    async def test_non_owner_is_forbidden(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A user who does not own the laporan should be forbidden."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        staff = await seed_verified_staff(db_session)
+        headers = get_auth_header(staff)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "Hacked",
+                "barang_description": "Hacked",
+            },
+        )
+
+        assert resp.status_code == 403
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.barang is not None
+        assert reloaded.barang.name == "KTP"
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_laporan_does_not_exist(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A missing laporan should return 404."""
+        mahasiswa = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(mahasiswa)
+
+        resp = await client.patch(
+            f"/reports/{uuid4()}/barang",
+            headers=headers,
+            data={
+                "barang_name": "Whatever",
+                "barang_description": "Whatever",
+            },
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Laporan tidak ditemukan"
+
+    @pytest.mark.asyncio
+    async def test_cannot_update_barang_on_terminal_laporan(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A laporan in a terminal status cannot have its barang updated."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.SELF_RESOLVED
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+            },
+        )
+
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.barang is not None
+        assert reloaded.barang.name == "KTP"
+
+    @pytest.mark.asyncio
+    async def test_invalid_photo_type_returns_400(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """A photo with a disallowed content type should fail validation."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+            },
+            files={"photo": ("bad.gif", b"fake-photo-bytes", "image/gif")},
+        )
+
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_returns_422_when_required_fields_missing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Omitting barang_name should fail validation before usecase execution."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            headers=headers,
+            data={"barang_description": "Kartu tanda mahasiswa"},
+        )
+
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Validation failed"
+
+    @pytest.mark.asyncio
+    async def test_returns_401_when_unauthenticated(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Missing auth header should return 401/403."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/barang",
+            data={
+                "barang_name": "KTM",
+                "barang_description": "Kartu tanda mahasiswa",
+            },
         )
 
         assert resp.status_code in (401, 403)

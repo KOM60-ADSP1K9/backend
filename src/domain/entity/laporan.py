@@ -67,7 +67,7 @@ class Laporan(ABC):
 
         self.barang = barang
 
-    def updateBarang(self, barang: Barang) -> None:
+    def updateBarang(self, name: str, description: str, photo: str) -> None:
         """Update the attached barang child entity."""
         if self.barang is None:
             raise ValueError("Barang does not exist")
@@ -75,18 +75,16 @@ class Laporan(ABC):
         self.assert_can_update()
 
         self.barang.update(
-            name=barang.name,
-            description=barang.description,
-            photo=barang.photo,
+            name=name,
+            description=description,
+            photo=photo,
         )
 
     def assert_can_update(self) -> None:
         """Assert that the laporan can be updated. If not, throw an exception."""
-        if self.status in {
-            LaporanStatus.CLOSED,
-            LaporanStatus.SELF_RESOLVED,
-            LaporanStatus.CLAIM_PENDING,
-            LaporanStatus.RESOLVED,
+        if self.status not in {
+            LaporanStatus.DRAFT,
+            LaporanStatus.ACTIVE,
         }:
             raise ValueError(
                 "Cannot update laporan with status closed, self-resolved, claim pending, or resolved"
