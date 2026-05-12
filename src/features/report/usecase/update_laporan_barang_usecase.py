@@ -62,13 +62,14 @@ class UpdateLaporanBarangUsecase:
         if laporan.barang is None:
             raise NotFoundException("Barang tidak ditemukan")
 
+        previous_photo = laporan.barang.photo
         if request.photo_content is not None:
             photo_path = await self._storage_service.upload_photo(
                 request.photo_content,
                 request.photo_filename or "photo",
             )
         else:
-            photo_path = laporan.barang.photo
+            photo_path = previous_photo
 
         try:
             laporan.updateBarang(
@@ -80,4 +81,12 @@ class UpdateLaporanBarangUsecase:
             raise BadRequestException(str(exc)) from exc
 
         updated_laporan = await self._laporan_repository.update(laporan)
+
+        if (
+            request.photo_content is not None
+            and previous_photo
+            and previous_photo != photo_path
+        ):
+            await self._storage_service.delete_photo(previous_photo)
+
         return UpdateLaporanBarangResult(laporan=updated_laporan)

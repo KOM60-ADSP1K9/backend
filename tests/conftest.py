@@ -143,8 +143,10 @@ async def client(db_session: AsyncSession):
     async def _override_db():
         yield db_session
 
+    shared_stub = StubStorageService()
+
     def _override_storage() -> IStorageService:
-        return StubStorageService()
+        return shared_stub
 
     app.dependency_overrides[get_async_db_session] = _override_db
     app.dependency_overrides[get_found_report_storage_service] = _override_storage
@@ -153,6 +155,7 @@ async def client(db_session: AsyncSession):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        ac.storage_stub = shared_stub  # type: ignore[attr-defined]
         yield ac
 
     app.dependency_overrides.clear()

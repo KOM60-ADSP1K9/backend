@@ -17,7 +17,7 @@ from src.features.report.usecase.update_laporan_status_usecase import (
 )
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from src.infrastructure.repositories.lokasi_repository import LokasiRepository
-from src.infrastructure.services.stub_storage_service import StubStorageService
+from src.infrastructure.services.storage_service_factory import create_storage_service
 
 
 def get_laporan_repository(
@@ -33,7 +33,7 @@ def get_lokasi_repository(
 
 
 def get_storage_service() -> IStorageService:
-    return StubStorageService()
+    return create_storage_service()
 
 
 def get_update_laporan_status_usecase(
