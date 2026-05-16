@@ -21,16 +21,25 @@ from src.infrastructure.tables.laporan_table import LaporanTable
 homepage_router = APIRouter(prefix="/homepage", tags=["homepage"])
 
 
+class LokasiResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    latitude: float
+    longitude: float
+
+
 class HomepageLaporanResponseDto(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     type: LaporanType
     status: LaporanStatus
-    lost_at_location_id: UUID | None
     lost_at_date: date | None
-    found_at_location_id: UUID | None
+    lost_at_location: "LokasiResponseDto | None"
     found_at_date: date | None
+    found_at_location: "LokasiResponseDto | None"
     created_at: datetime | None
     updated_at: datetime | None
     barang: "BarangResponseDto"
@@ -70,14 +79,22 @@ def _to_homepage_laporan_response_dto(
     laporan: LaporanTable,
     current_user_id: UUID,
 ) -> HomepageLaporanResponseDto:
+    lost_loc = getattr(laporan, "lost_at_location", None)
+    found_loc = getattr(laporan, "found_at_location", None)
     return HomepageLaporanResponseDto(
         id=laporan.id,
         type=laporan.type,
         status=laporan.status,
-        lost_at_location_id=getattr(laporan, "lost_at_location_id", None),
         lost_at_date=getattr(laporan, "lost_at_date", None),
-        found_at_location_id=getattr(laporan, "found_at_location_id", None),
+        lost_at_location=(
+            LokasiResponseDto.model_validate(lost_loc) if lost_loc is not None else None
+        ),
         found_at_date=getattr(laporan, "found_at_date", None),
+        found_at_location=(
+            LokasiResponseDto.model_validate(found_loc)
+            if found_loc is not None
+            else None
+        ),
         created_at=laporan.created_at,
         updated_at=laporan.updated_at,
         barang=BarangResponseDto.model_validate(laporan.barang),
@@ -110,8 +127,15 @@ async def get_all_laporan(
     limit: int = Query(
         20,
         ge=1,
-        le=100,
+        le=500,
         description="Maximum number of laporan to return",
+    ),
+    date: date | None = Query(None, description="Filter by exact event date"),
+    date_from: date | None = Query(
+        None, description="Filter by event date range start (inclusive)"
+    ),
+    date_to: date | None = Query(
+        None, description="Filter by event date range end (inclusive)"
     ),
     usecase=Depends(get_all_laporan_usecase),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
@@ -121,6 +145,9 @@ async def get_all_laporan(
         status=status,
         page=page,
         limit=limit,
+        date=date,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     return HTTPDataResponse[list[HomepageLaporanResponseDto]](
@@ -153,8 +180,15 @@ async def get_my_laporan(
     limit: int = Query(
         20,
         ge=1,
-        le=100,
+        le=500,
         description="Maximum number of laporan to return",
+    ),
+    date: date | None = Query(None, description="Filter by exact event date"),
+    date_from: date | None = Query(
+        None, description="Filter by event date range start (inclusive)"
+    ),
+    date_to: date | None = Query(
+        None, description="Filter by event date range end (inclusive)"
     ),
     usecase=Depends(get_my_laporan_usecase),
 ) -> HTTPDataResponse[list[HomepageLaporanResponseDto]]:
@@ -165,6 +199,9 @@ async def get_my_laporan(
         status=status,
         page=page,
         limit=limit,
+        date=date,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     return HTTPDataResponse[list[HomepageLaporanResponseDto]](
