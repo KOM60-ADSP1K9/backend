@@ -1,9 +1,10 @@
 """Usecase: Get all laporan for the homepage."""
 
 from collections.abc import Iterable
+from datetime import date
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +31,9 @@ class GetAllLaporanUsecase:
         status: LaporanStatus | None = None,
         page: int = 1,
         limit: int = 20,
+        date: date | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
     ) -> GetAllLaporanResult:
         """Return laporan in the system, optionally filtered and paginated."""
         offset = (page - 1) * limit
@@ -40,6 +44,8 @@ class GetAllLaporanUsecase:
                     BarangTable.kategori_barang
                 ),
                 selectinload(LaporanTable.user),
+                selectinload(LaporanTable.lost_at_location),
+                selectinload(LaporanTable.found_at_location),
             )
             .order_by(LaporanTable.created_at.desc(), LaporanTable.id.desc())
             .offset(offset)
@@ -57,6 +63,30 @@ class GetAllLaporanUsecase:
 
         if user_id is not None:
             statement = statement.where(LaporanTable.user_id == user_id)
+
+        if date is not None:
+            statement = statement.where(
+                or_(
+                    LaporanTable.lost_at_date == date,
+                    LaporanTable.found_at_date == date,
+                )
+            )
+
+        if date_from is not None:
+            statement = statement.where(
+                or_(
+                    LaporanTable.lost_at_date >= date_from,
+                    LaporanTable.found_at_date >= date_from,
+                )
+            )
+
+        if date_to is not None:
+            statement = statement.where(
+                or_(
+                    LaporanTable.lost_at_date <= date_to,
+                    LaporanTable.found_at_date <= date_to,
+                )
+            )
 
         result = await self._db.execute(statement)
         laporan = list(result.scalars().all())
