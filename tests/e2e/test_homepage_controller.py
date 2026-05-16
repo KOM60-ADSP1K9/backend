@@ -163,10 +163,10 @@ class TestGetAllHomepageLaporan:
             "id",
             "type",
             "status",
-            "lost_at_location_id",
             "lost_at_date",
-            "found_at_location_id",
+            "lost_at_location",
             "found_at_date",
+            "found_at_location",
             "created_at",
             "updated_at",
             "barang",
@@ -603,3 +603,290 @@ class TestGetAllHomepageLaporan:
         body = resp.json()
         assert len(body["data"]) == 1
         assert body["data"][0]["barang"]["name"] == "Dompet"
+
+    @pytest.mark.asyncio
+    async def test_should_include_full_lokasi_data_in_response(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Response should embed full lokasi objects (id, name, latitude, longitude)."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-lokasi@apps.ipb.ac.id",
+            nim="G6401212009",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi_hilang = LokasiTable(
+            name="Perpustakaan IPB",
+            latitude=-6.559012,
+            longitude=106.729034,
+        )
+        lokasi_temuan = LokasiTable(
+            name="Gedung Rektorat",
+            latitude=-6.560123,
+            longitude=106.730456,
+        )
+        db_session.add(lokasi_hilang)
+        db_session.add(lokasi_temuan)
+        await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
+
+        repository = LaporanRepository(db_session)
+
+        hilang = LaporanHilang.New(
+            lost_at_location_id=lokasi_hilang.id,
+            lost_at_date=date(2026, 5, 1),
+            user_id=current_user.id,
+        )
+        hilang.status = LaporanStatus.ACTIVE
+        hilang.addBarang(
+            Barang.New(
+                name="KTP Lokasi",
+                description="KTP dengan lokasi",
+                photo="stub://lost-reports/lokasi.jpg",
+                kategori_barang_id=kategori.id,
+            )
+        )
+        await repository.save(hilang)
+
+        temuan = LaporanTemuan.New(
+            found_at_location_id=lokasi_temuan.id,
+            found_at_date=date(2026, 5, 2),
+            user_id=current_user.id,
+        )
+        temuan.status = LaporanStatus.ACTIVE
+        temuan.addBarang(
+            Barang.New(
+                name="Dompet Lokasi",
+                description="Dompet dengan lokasi",
+                photo="stub://found-reports/lokasi.jpg",
+            )
+        )
+        await repository.save(temuan)
+
+        resp = await client.get("/homepage/laporan", headers=headers)
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+
+        hilang_item = next(item for item in data if item["type"] == "hilang")
+        temuan_item = next(item for item in data if item["type"] == "temuan")
+
+        assert hilang_item["lost_at_location"] == {
+            "id": str(lokasi_hilang.id),
+            "name": "Perpustakaan IPB",
+            "latitude": -6.559012,
+            "longitude": 106.729034,
+        }
+        assert hilang_item["found_at_location"] is None
+
+        assert temuan_item["found_at_location"] == {
+            "id": str(lokasi_temuan.id),
+            "name": "Gedung Rektorat",
+            "latitude": -6.560123,
+            "longitude": 106.730456,
+        }
+        assert temuan_item["lost_at_location"] is None
+
+    @pytest.mark.asyncio
+    async def test_should_filter_laporan_by_exact_date(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Providing `date` query param should return only laporan whose event date matches."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-date@apps.ipb.ac.id",
+            nim="G6401212010",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung Date",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+
+        target_date = date(2026, 5, 10)
+        other_date = date(2026, 5, 11)
+
+        on_target = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=target_date,
+            user_id=current_user.id,
+        )
+        on_target.status = LaporanStatus.ACTIVE
+        on_target.addBarang(
+            Barang.New(
+                name="KTP Target",
+                description="Hilang pada tanggal target",
+                photo="stub://lost-reports/target.jpg",
+            )
+        )
+        await repository.save(on_target)
+
+        off_target = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=other_date,
+            user_id=current_user.id,
+        )
+        off_target.status = LaporanStatus.ACTIVE
+        off_target.addBarang(
+            Barang.New(
+                name="Tas Off",
+                description="Temuan di tanggal lain",
+                photo="stub://found-reports/off.jpg",
+            )
+        )
+        await repository.save(off_target)
+
+        temuan_target = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=target_date,
+            user_id=current_user.id,
+        )
+        temuan_target.status = LaporanStatus.ACTIVE
+        temuan_target.addBarang(
+            Barang.New(
+                name="Dompet Target",
+                description="Temuan pada tanggal target",
+                photo="stub://found-reports/target.jpg",
+            )
+        )
+        await repository.save(temuan_target)
+
+        resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"date": str(target_date)},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 2
+        names = {item["barang"]["name"] for item in data}
+        assert names == {"KTP Target", "Dompet Target"}
+        assert all(
+            item["lost_at_date"] == str(target_date)
+            or item["found_at_date"] == str(target_date)
+            for item in data
+        )
+
+    @pytest.mark.asyncio
+    async def test_should_filter_laporan_by_date_range(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Providing `date_from` and `date_to` should return laporan whose event date is within the range."""
+        current_user = await seed_verified_user(
+            db_session,
+            email="home-range@apps.ipb.ac.id",
+            nim="G6401212011",
+        )
+        headers = get_auth_header(current_user)
+
+        lokasi = LokasiTable(
+            name="Gedung Range",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+
+        repository = LaporanRepository(db_session)
+
+        before_range = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 4, 29),
+            user_id=current_user.id,
+        )
+        before_range.status = LaporanStatus.ACTIVE
+        before_range.addBarang(
+            Barang.New(
+                name="KTP Before",
+                description="Sebelum range",
+                photo="stub://lost-reports/before.jpg",
+            )
+        )
+        await repository.save(before_range)
+
+        in_range_1 = LaporanHilang.New(
+            lost_at_location_id=lokasi.id,
+            lost_at_date=date(2026, 5, 1),
+            user_id=current_user.id,
+        )
+        in_range_1.status = LaporanStatus.ACTIVE
+        in_range_1.addBarang(
+            Barang.New(
+                name="KTP In Range 1",
+                description="Dalam range awal",
+                photo="stub://lost-reports/in1.jpg",
+            )
+        )
+        await repository.save(in_range_1)
+
+        in_range_2 = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 5, 5),
+            user_id=current_user.id,
+        )
+        in_range_2.status = LaporanStatus.ACTIVE
+        in_range_2.addBarang(
+            Barang.New(
+                name="Tas In Range 2",
+                description="Dalam range tengah",
+                photo="stub://found-reports/in2.jpg",
+            )
+        )
+        await repository.save(in_range_2)
+
+        after_range = LaporanTemuan.New(
+            found_at_location_id=lokasi.id,
+            found_at_date=date(2026, 5, 11),
+            user_id=current_user.id,
+        )
+        after_range.status = LaporanStatus.ACTIVE
+        after_range.addBarang(
+            Barang.New(
+                name="Dompet After",
+                description="Setelah range",
+                photo="stub://found-reports/after.jpg",
+            )
+        )
+        await repository.save(after_range)
+
+        resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"date_from": "2026-05-01", "date_to": "2026-05-10"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 2
+        names = {item["barang"]["name"] for item in data}
+        assert names == {"KTP In Range 1", "Tas In Range 2"}
+
+        only_from_resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"date_from": "2026-05-05"},
+        )
+        assert only_from_resp.status_code == 200
+        from_data = only_from_resp.json()["data"]
+        assert len(from_data) == 2
+        from_names = {item["barang"]["name"] for item in from_data}
+        assert from_names == {"Tas In Range 2", "Dompet After"}
+
+        only_to_resp = await client.get(
+            "/homepage/laporan",
+            headers=headers,
+            params={"date_to": "2026-05-01"},
+        )
+        assert only_to_resp.status_code == 200
+        to_data = only_to_resp.json()["data"]
+        assert len(to_data) == 2
+        to_names = {item["barang"]["name"] for item in to_data}
+        assert to_names == {"KTP Before", "KTP In Range 1"}
