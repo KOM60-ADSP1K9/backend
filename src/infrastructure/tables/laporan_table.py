@@ -17,6 +17,7 @@ from src.domain.entity.laporan import (
     LaporanType,
 )
 from src.infrastructure.tables.barang_table import BarangTable
+from src.infrastructure.tables.lokasi_table import LokasiTable
 from src.infrastructure.tables.user_table import UserTable
 
 
@@ -72,6 +73,12 @@ class LaporanTable(Base):
 
     lost_at_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    lost_at_location: Mapped[LokasiTable | None] = relationship(
+        "LokasiTable",
+        foreign_keys=[lost_at_location_id],
+        lazy="selectin",
+    )
+
     found_at_location_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("lokasi.id", ondelete="SET NULL"),
@@ -79,6 +86,12 @@ class LaporanTable(Base):
     )
 
     found_at_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    found_at_location: Mapped[LokasiTable | None] = relationship(
+        "LokasiTable",
+        foreign_keys=[found_at_location_id],
+        lazy="selectin",
+    )
 
     barang: Mapped[BarangTable | None] = relationship(
         "BarangTable",
