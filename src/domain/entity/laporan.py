@@ -23,6 +23,8 @@ class LaporanStatus(str, enum.Enum):
     DRAFT = "draft"
     ACTIVE = "active"
     CLAIM_PENDING = "claim pending"
+    FOUND_CLAIM_PENDING = "found claim pending"
+    IN_PROGRESS = "in progress"
     RESOLVED = "resolved"
     CLOSED = "closed"
     SELF_RESOLVED = "self-resolved"
@@ -108,6 +110,8 @@ class Laporan(ABC):
             self.mark_as_active()
         elif newStatus == LaporanStatus.CLAIM_PENDING:
             self.mark_as_claim_pending()
+        elif newStatus == LaporanStatus.IN_PROGRESS:
+            self.mark_as_in_progress()
         elif newStatus == LaporanStatus.RESOLVED:
             self.mark_as_resolved()
         elif newStatus == LaporanStatus.SELF_RESOLVED:
@@ -118,12 +122,15 @@ class Laporan(ABC):
     def mark_as_active(self) -> None:
         """Mark laporan as active and can be claimed or resolved."""
         if (
-            self.status != LaporanStatus.DRAFT
-            and self.status
-            != LaporanStatus.CLAIM_PENDING  # allow re-activating from claim pending if claim is rejected
+            self.status
+            not in {
+                LaporanStatus.DRAFT,
+                LaporanStatus.CLAIM_PENDING,  # allow re-activating from claim pending if claim is rejected
+                LaporanStatus.FOUND_CLAIM_PENDING,  # allow re-activating from found claim pending if claim is rejected
+            }
         ):
             raise ValueError(
-                "Can only mark as active from draft or claim pending status"
+                "Can only mark as active from draft, claim pending, or found claim pending status"
             )
 
         self.status = LaporanStatus.ACTIVE
@@ -134,6 +141,20 @@ class Laporan(ABC):
             raise ValueError("Can only mark as claim pending from active status")
 
         self.status = LaporanStatus.CLAIM_PENDING
+
+    def mark_as_found_claim_pending(self) -> None:
+        """Mark laporan as found claim pending (lost item reported found by someone, awaiting claim)."""
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only mark as found claim pending from active status")
+
+        self.status = LaporanStatus.FOUND_CLAIM_PENDING
+
+    def mark_as_in_progress(self) -> None:
+        """Mark laporan as in progress (claim accepted, handover in progress)."""
+        if self.status != LaporanStatus.CLAIM_PENDING:
+            raise ValueError("Can only mark as in progress from claim pending status")
+
+        self.status = LaporanStatus.IN_PROGRESS
 
     def mark_as_resolved(self) -> None:
         """Mark laporan as resolved (found goods back to the user, or lost goods is found)."""
@@ -237,12 +258,25 @@ class LaporanHilang(Laporan):
             self.mark_as_active()
         elif newStatus == LaporanStatus.CLAIM_PENDING:
             raise ValueError("Cannot mark lost-item laporan as claim pending")
+        elif newStatus == LaporanStatus.FOUND_CLAIM_PENDING:
+            self.mark_as_found_claim_pending()
+        elif newStatus == LaporanStatus.IN_PROGRESS:
+            self.mark_as_in_progress()
         elif newStatus == LaporanStatus.RESOLVED:
             self.mark_as_resolved()
         elif newStatus == LaporanStatus.SELF_RESOLVED:
             self.mark_as_self_resolved()
         else:
             raise ValueError(f"Invalid target status: {newStatus}")
+
+    def mark_as_in_progress(self) -> None:
+        """Mark lost-item laporan as in progress (only from found claim pending)."""
+        if self.status != LaporanStatus.FOUND_CLAIM_PENDING:
+            raise ValueError(
+                "Can only mark lost-item laporan as in progress from found claim pending status"
+            )
+
+        self.status = LaporanStatus.IN_PROGRESS
 
 
 @dataclass

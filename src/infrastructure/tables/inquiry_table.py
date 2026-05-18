@@ -45,12 +45,14 @@ class InquiryTable(Base):
         UUID(as_uuid=True),
         ForeignKey("laporan.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     sender_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     message_content: Mapped[str] = mapped_column(String, nullable=False)
