@@ -2,8 +2,9 @@
 
 Endpoints under test
 ────────────────────
-POST /inquiries/claim – Create ClaimInquiry on active LaporanTemuan.
-POST /inquiries/found – Create FoundInquiry on active LaporanHilang.
+POST  /inquiries/claim              – Create ClaimInquiry on active LaporanTemuan.
+POST  /inquiries/found              – Create FoundInquiry on active LaporanHilang.
+PATCH /inquiries/{inquiry_id}/status – Owner-only transition of inquiry status.
 """
 
 from datetime import date
@@ -358,3 +359,304 @@ class TestCreateFoundInquiry:
         )
 
         assert resp.status_code == 404
+
+
+async def _seed_laporan_temuan_with_claim_inquiry(
+    db: AsyncSession,
+    owner_id,
+    inquirer_id,
+    inquiry_status: InquiryStatus = InquiryStatus.PROPOSED,
+) -> tuple[LaporanTemuan, ClaimInquiry]:
+    laporan = await _seed_active_laporan_temuan(db, owner_id)
+    inquiry = ClaimInquiry.New(
+        laporan_id=laporan.id,
+        sender_user_id=inquirer_id,
+        message_content="Saya pemilik barang ini",
+        claimer_contact="0812345678",
+        proof_of_ownership="proof_url",
+        ktm="ktm_url",
+    )
+    inquiry.status = inquiry_status
+    laporan.inquiries.append(inquiry)
+    saved = await LaporanRepository(db).update(laporan)
+    assert isinstance(saved, LaporanTemuan)
+    saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)
+    assert isinstance(saved_inquiry, ClaimInquiry)
+    return saved, saved_inquiry
+
+
+async def _seed_laporan_hilang_with_found_inquiry(
+    db: AsyncSession,
+    owner_id,
+    inquirer_id,
+    inquiry_status: InquiryStatus = InquiryStatus.PROPOSED,
+) -> tuple[LaporanHilang, FoundInquiry]:
+    laporan = await _seed_active_laporan_hilang(db, owner_id)
+    inquiry = FoundInquiry.New(
+        laporan_id=laporan.id,
+        sender_user_id=inquirer_id,
+        message_content="Saya menemukan barang ini",
+        finder_contact="0812345678",
+        photo="photo_url",
+    )
+    inquiry.status = inquiry_status
+    laporan.inquiries.append(inquiry)
+    saved = await LaporanRepository(db).update(laporan)
+    assert isinstance(saved, LaporanHilang)
+    saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)
+    assert isinstance(saved_inquiry, FoundInquiry)
+    return saved, saved_inquiry
+
+
+class TestUpdateInquiryStatus:
+    """PATCH /inquiries/{inquiry_id}/status"""
+
+    @pytest.mark.asyncio
+    async def test_owner_activates_proposed_claim_inquiry(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["id"] == str(inquiry.id)
+        assert body["data"]["status"] == "active"
+        assert body["data"]["type"] == "claim"
+
+        saved = await LaporanRepository(db_session).findById(inquiry.laporan_id)
+        assert saved is not None
+        saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)
+        assert saved_inquiry.status == InquiryStatus.ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_owner_rejects_proposed_claim_inquiry(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "rejected"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "rejected"
+
+        saved = await LaporanRepository(db_session).findById(inquiry.laporan_id)
+        assert saved is not None
+        saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)
+        assert saved_inquiry.status == InquiryStatus.REJECTED
+
+    @pytest.mark.asyncio
+    async def test_owner_rejects_active_claim_inquiry(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session,
+            owner.id,
+            inquirer.id,
+            inquiry_status=InquiryStatus.ACTIVE,
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "rejected"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "rejected"
+
+    @pytest.mark.asyncio
+    async def test_owner_activates_proposed_found_inquiry(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_hilang_with_found_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["status"] == "active"
+        assert body["data"]["type"] == "found"
+
+    @pytest.mark.asyncio
+    async def test_rejects_activation_when_another_active_inquiry_exists(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan, proposed_inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        other_active = ClaimInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer.id,
+            message_content="another",
+            claimer_contact="0800",
+            proof_of_ownership="proof2",
+            ktm="ktm2",
+        )
+        other_active.status = InquiryStatus.ACTIVE
+        laporan.inquiries.append(other_active)
+        await LaporanRepository(db_session).update(laporan)
+
+        resp = await client.patch(
+            f"/inquiries/{proposed_inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 400
+        assert "active inquiry" in resp.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_rejects_activation_when_inquiry_already_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session,
+            owner.id,
+            inquirer.id,
+            inquiry_status=InquiryStatus.REJECTED,
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 400
+        assert "proposed" in resp.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_rejects_reject_when_inquiry_already_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session,
+            owner.id,
+            inquirer.id,
+            inquiry_status=InquiryStatus.REJECTED,
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "rejected"},
+        )
+
+        assert resp.status_code == 400
+        assert "proposed or active" in resp.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_target_status_proposed(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "proposed"},
+        )
+
+        assert resp.status_code == 400
+        assert "Invalid target status" in resp.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_rejects_unknown_status_value(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "closed"},
+        )
+
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_forbids_non_owner(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        _, inquiry = await _seed_laporan_temuan_with_claim_inquiry(
+            db_session, owner.id, inquirer.id
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry.id}/status",
+            headers=get_auth_header(inquirer),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_inquiry_not_found(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+
+        resp = await client.patch(
+            f"/inquiries/{uuid4()}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_requires_authentication(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        resp = await client.patch(
+            f"/inquiries/{uuid4()}/status",
+            json={"status": "active"},
+        )
+
+        assert resp.status_code in (401, 403)

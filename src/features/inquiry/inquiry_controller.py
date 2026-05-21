@@ -25,6 +25,7 @@ from src.domain.entity.user import User
 from src.features.inquiry.inquiry_dependencies import (
     get_create_claim_inquiry_usecase,
     get_create_found_inquiry_usecase,
+    get_update_inquiry_status_usecase,
 )
 from src.features.inquiry.usecase.create_claim_inquiry_usecase import (
     CreateClaimInquiryRequest,
@@ -33,6 +34,10 @@ from src.features.inquiry.usecase.create_claim_inquiry_usecase import (
 from src.features.inquiry.usecase.create_found_inquiry_usecase import (
     CreateFoundInquiryRequest,
     CreateFoundInquiryUsecase,
+)
+from src.features.inquiry.usecase.update_inquiry_status_usecase import (
+    UpdateInquiryStatusRequest,
+    UpdateInquiryStatusUsecase,
 )
 
 inquiry_router = APIRouter(prefix="/inquiries", tags=["inquiries"])
@@ -176,4 +181,34 @@ async def create_found_inquiry(
         status="success",
         data=_to_inquiry_response_dto(result.inquiry),
         message="Found inquiry created successfully",
+    )
+
+
+class UpdateInquiryStatusRequestDto(BaseModel):
+    status: InquiryStatus
+
+
+@inquiry_router.patch(
+    "/{inquiry_id}/status",
+    response_model=HTTPDataResponse[InquiryResponseDto],
+)
+async def update_inquiry_status(
+    inquiry_id: UUID,
+    body: UpdateInquiryStatusRequestDto,
+    current_user: User = Depends(get_current_user),
+    usecase: UpdateInquiryStatusUsecase = Depends(get_update_inquiry_status_usecase),
+) -> HTTPDataResponse[InquiryResponseDto]:
+    """Update an inquiry's status. Only the laporan owner may invoke. Owner can reject an active inquiry or reactivate a rejected inquiry."""
+    result = await usecase.execute(
+        UpdateInquiryStatusRequest(
+            inquiry_id=inquiry_id,
+            target_status=body.status,
+            current_user_id=current_user.id,
+        )
+    )
+
+    return HTTPDataResponse[InquiryResponseDto](
+        status="success",
+        data=_to_inquiry_response_dto(result.inquiry),
+        message="Inquiry status updated successfully",
     )
