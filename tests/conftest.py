@@ -33,6 +33,9 @@ def _load_app_modules():
     from src.core.db import Base, get_async_db_session
     from src.infrastructure.tables import (
         BarangTable,
+        ClaimInquiryTable,
+        FoundInquiryTable,
+        InquiryTable,
         LaporanHilangTable,
         LaporanTable,
         LaporanTemuanTable,
@@ -44,6 +47,9 @@ def _load_app_modules():
     # Ensure model modules are imported so metadata is fully registered.
     _ = (
         BarangTable,
+        ClaimInquiryTable,
+        FoundInquiryTable,
+        InquiryTable,
         LaporanTable,
         LaporanHilangTable,
         LaporanTemuanTable,
@@ -138,6 +144,9 @@ async def client(db_session: AsyncSession):
     from src.features.report.report_dependencies import (
         get_storage_service as get_report_storage_service,
     )
+    from src.features.inquiry.inquiry_dependencies import (
+        get_storage_service as get_inquiry_storage_service,
+    )
     from src.infrastructure.services.stub_storage_service import StubStorageService
 
     async def _override_db():
@@ -152,6 +161,7 @@ async def client(db_session: AsyncSession):
     app.dependency_overrides[get_found_report_storage_service] = _override_storage
     app.dependency_overrides[get_lost_report_storage_service] = _override_storage
     app.dependency_overrides[get_report_storage_service] = _override_storage
+    app.dependency_overrides[get_inquiry_storage_service] = _override_storage
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

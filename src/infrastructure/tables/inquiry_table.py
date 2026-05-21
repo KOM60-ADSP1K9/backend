@@ -85,6 +85,7 @@ class InquiryTable(Base):
 
     laporan: Mapped[LaporanTable] = relationship(
         "LaporanTable",
+        back_populates="inquiries",
         lazy="selectin",
     )
 

@@ -49,6 +49,24 @@ async def seed_verified_mahasiswa(db: AsyncSession) -> User:
     return await UserRepository(db).save(user)
 
 
+async def seed_other_verified_mahasiswa(
+    db: AsyncSession,
+    email: str = "another@apps.ipb.ac.id",
+    nim: str = "G6401211002",
+) -> User:
+    """Insert a second verified MAHASISWA distinct from the default one."""
+    user = User.New(
+        email=email,
+        hashed_password=_HASHED_PASSWORD,
+        role=UserRole.MAHASISWA,
+        nim=nim,
+        fakultas=VALID_FAKULTAS,
+        departemen=VALID_DEPARTEMEN,
+    )
+    user.verify_email()
+    return await UserRepository(db).save(user)
+
+
 async def seed_unverified_mahasiswa(db: AsyncSession) -> User:
     """Insert an unverified MAHASISWA and return the domain entity."""
     user = User.New(

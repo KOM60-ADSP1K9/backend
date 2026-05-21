@@ -1,8 +1,7 @@
 """Domain model for laporan."""
 
 from abc import ABC
-from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import datetime
 import enum
 from typing import Self
@@ -43,6 +42,7 @@ class Laporan(ABC):
     updated_at: datetime.datetime | None = None
     user_id: UUID | None = None
     barang: Barang | None = None
+    inquiries: list[Inquiry] = field(default_factory=list)
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class Laporan(ABC):
         updated_at: datetime.datetime | None = None,
         user_id: UUID | None = None,
         barang: Barang | None = None,
+        inquiries: list[Inquiry] | None = None,
     ) -> None:
         self.id = id
         self.type = type
@@ -61,6 +62,7 @@ class Laporan(ABC):
         self.updated_at = updated_at
         self.user_id = user_id
         self.barang = barang
+        self.inquiries = list(inquiries) if inquiries is not None else []
 
     def assert_can_update(self) -> None:
         """Assert that the laporan can be updated. If not, throw an exception."""
@@ -184,29 +186,30 @@ class Laporan(ABC):
 
         self.status = LaporanStatus.CLOSED
 
-    def add_inquiry(
-        self,
-        inquiry: Inquiry,
-        existing_inquiries: Iterable[Inquiry],
-    ) -> Inquiry:
-        """Validate and accept a new inquiry for this laporan.
+    def add_inquiry(self, inquiry: Inquiry) -> Inquiry:
+        """Validate and append a new inquiry to this laporan's aggregate.
 
         Subclasses enforce inquiry-type compatibility via `_assert_inquiry_type_allowed`.
-        Laporan must be in ACTIVE status. Rejects if any existing inquiry has status ACTIVE.
+        Laporan must be in ACTIVE status. Rejects if any inquiry already attached has
+        status ACTIVE.
         """
         if self.status != LaporanStatus.ACTIVE:
             raise ValueError("Can only add inquiry to laporan with active status")
 
+        if inquiry.sender_user_id == self.user_id:
+            raise ValueError("Cannot add inquiry to your own laporan")
+
         self._assert_inquiry_type_allowed(inquiry)
 
         has_active = any(
-            existing.status == InquiryStatus.ACTIVE for existing in existing_inquiries
+            existing.status == InquiryStatus.ACTIVE for existing in self.inquiries
         )
         if has_active:
             raise ValueError(
                 "Cannot add inquiry while there is an active inquiry for this laporan"
             )
 
+        self.inquiries.append(inquiry)
         return inquiry
 
     def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
@@ -217,15 +220,12 @@ class Laporan(ABC):
         if inquiry.laporan_id != self.id:
             raise ValueError("Inquiry does not belong to this laporan")
 
-    def make_inquiry_active(
-        self,
-        inquiry: Inquiry,
-        existing_inquiries: Iterable[Inquiry],
-    ) -> Inquiry:
+    def make_inquiry_active(self, inquiry: Inquiry) -> Inquiry:
         """Promote inquiry from PROPOSED to ACTIVE.
 
         Rejects if inquiry is not a valid type, does not belong to this laporan,
-        is not in PROPOSED status, or another active inquiry already exists.
+        is not in PROPOSED status, or another active inquiry already exists in
+        this laporan's aggregate.
         """
         self._assert_inquiry_type_allowed(inquiry)
         self._assert_inquiry_belongs(inquiry)
@@ -235,7 +235,7 @@ class Laporan(ABC):
 
         has_other_active = any(
             existing.status == InquiryStatus.ACTIVE and existing.id != inquiry.id
-            for existing in existing_inquiries
+            for existing in self.inquiries
         )
         if has_other_active:
             raise ValueError("There is already an active inquiry for this laporan")
@@ -275,6 +275,7 @@ class LaporanHilang(Laporan):
         lost_at_date: datetime.date | None = None,
         user_id: UUID | None = None,
         barang: Barang | None = None,
+        inquiries: list[Inquiry] | None = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -284,6 +285,7 @@ class LaporanHilang(Laporan):
             updated_at=updated_at,
             user_id=user_id,
             barang=barang,
+            inquiries=inquiries,
         )
         self.lost_at_location_id = lost_at_location_id
         self.lost_at_date = lost_at_date
@@ -375,6 +377,7 @@ class LaporanTemuan(Laporan):
         found_at_date: datetime.date | None = None,
         user_id: UUID | None = None,
         barang: Barang | None = None,
+        inquiries: list[Inquiry] | None = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -384,6 +387,7 @@ class LaporanTemuan(Laporan):
             updated_at=updated_at,
             user_id=user_id,
             barang=barang,
+            inquiries=inquiries,
         )
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date

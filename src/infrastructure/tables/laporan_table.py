@@ -3,6 +3,7 @@
 import enum
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, DateTime, Enum, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,6 +19,9 @@ from src.domain.entity.laporan import (
 )
 from src.infrastructure.tables.barang_table import BarangTable
 from src.infrastructure.tables.user_table import UserTable
+
+if TYPE_CHECKING:
+    from src.infrastructure.tables.inquiry_table import InquiryTable
 
 
 def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
@@ -89,6 +93,13 @@ class LaporanTable(Base):
         lazy="selectin",
     )
 
+    inquiries: Mapped[list["InquiryTable"]] = relationship(
+        "InquiryTable",
+        back_populates="laporan",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -115,6 +126,8 @@ class LaporanTable(Base):
     __mapper_args__ = {"polymorphic_on": type}
 
     def to_domain(self) -> Laporan:
+        inquiries_domain = [row.to_domain() for row in self.inquiries]
+
         if self.type == LaporanType.HILANG:
             laporan = LaporanHilang(
                 id=self.id,
@@ -125,6 +138,7 @@ class LaporanTable(Base):
                 lost_at_date=self.lost_at_date,
                 user_id=self.user_id,
                 barang=self.barang.to_domain() if self.barang is not None else None,
+                inquiries=inquiries_domain,
             )
             return laporan
 
@@ -138,6 +152,7 @@ class LaporanTable(Base):
                 found_at_date=self.found_at_date,
                 user_id=self.user_id,
                 barang=self.barang.to_domain() if self.barang is not None else None,
+                inquiries=inquiries_domain,
             )
             return laporan
 
@@ -159,6 +174,11 @@ class LaporanTable(Base):
             )
             if laporan.barang is not None:
                 row.barang = BarangTable.from_domain(laporan.barang, laporan.id)
+            from src.infrastructure.tables.inquiry_table import InquiryTable
+
+            row.inquiries = [
+                InquiryTable.from_domain(inquiry) for inquiry in laporan.inquiries
+            ]
             return row
 
         if isinstance(laporan, LaporanTemuan) or laporan.type == LaporanType.TEMUAN:
@@ -174,6 +194,11 @@ class LaporanTable(Base):
             )
             if laporan.barang is not None:
                 row.barang = BarangTable.from_domain(laporan.barang, laporan.id)
+            from src.infrastructure.tables.inquiry_table import InquiryTable
+
+            row.inquiries = [
+                InquiryTable.from_domain(inquiry) for inquiry in laporan.inquiries
+            ]
             return row
 
         raise ValueError(f"Unsupported laporan type: {laporan.type}")
