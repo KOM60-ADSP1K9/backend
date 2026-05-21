@@ -30,7 +30,7 @@ class UpdateInquiryStatusResult:
 
 
 class UpdateInquiryStatusUsecase:
-    """Transition an inquiry's status. Only the laporan owner may invoke."""
+    """Update an inquiry's status. Only the laporan owner may invoke. Owner can reject an active inquiry or reactivate a rejected inquiry."""
 
     def __init__(
         self,
