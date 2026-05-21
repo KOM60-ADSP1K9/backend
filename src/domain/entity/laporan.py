@@ -125,14 +125,13 @@ class Laporan(ABC):
 
     def mark_as_active(self) -> None:
         """Mark laporan as active and can be claimed or resolved."""
-        if (
-            self.status
-            not in {
-                LaporanStatus.DRAFT,
-                LaporanStatus.CLAIM_PENDING,  # allow re-activating from claim pending if claim is rejected
-                LaporanStatus.FOUND_CLAIM_PENDING,  # allow re-activating from found claim pending if claim is rejected
-            }
-        ):
+        # allow re-activating from claim pending if claim is rejected
+        # allow re-activating from found claim pending if claim is rejected
+        if self.status not in {
+            LaporanStatus.DRAFT,
+            LaporanStatus.CLAIM_PENDING,
+            LaporanStatus.FOUND_CLAIM_PENDING,
+        }:
             raise ValueError(
                 "Can only mark as active from draft, claim pending, or found claim pending status"
             )
