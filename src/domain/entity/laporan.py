@@ -192,8 +192,11 @@ class Laporan(ABC):
         """Validate and accept a new inquiry for this laporan.
 
         Subclasses enforce inquiry-type compatibility via `_assert_inquiry_type_allowed`.
-        Rejects if any existing inquiry has status ACTIVE.
+        Laporan must be in ACTIVE status. Rejects if any existing inquiry has status ACTIVE.
         """
+        if self.status != LaporanStatus.ACTIVE:
+            raise ValueError("Can only add inquiry to laporan with active status")
+
         self._assert_inquiry_type_allowed(inquiry)
 
         has_active = any(
