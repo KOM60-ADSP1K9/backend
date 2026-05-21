@@ -1,6 +1,7 @@
 """Domain model for laporan."""
 
 from abc import ABC
+from collections.abc import Iterable
 from dataclasses import dataclass
 import datetime
 import enum
@@ -8,6 +9,7 @@ from typing import Self
 from uuid import UUID, uuid4
 
 from .barang import Barang
+from .inquiry import ClaimInquiry, FoundInquiry, Inquiry, InquiryStatus
 
 
 class LaporanType(str, enum.Enum):
@@ -182,6 +184,76 @@ class Laporan(ABC):
 
         self.status = LaporanStatus.CLOSED
 
+    def add_inquiry(
+        self,
+        inquiry: Inquiry,
+        existing_inquiries: Iterable[Inquiry],
+    ) -> Inquiry:
+        """Validate and accept a new inquiry for this laporan.
+
+        Subclasses enforce inquiry-type compatibility via `_assert_inquiry_type_allowed`.
+        Rejects if any existing inquiry has status ACTIVE.
+        """
+        self._assert_inquiry_type_allowed(inquiry)
+
+        has_active = any(
+            existing.status == InquiryStatus.ACTIVE for existing in existing_inquiries
+        )
+        if has_active:
+            raise ValueError(
+                "Cannot add inquiry while there is an active inquiry for this laporan"
+            )
+
+        return inquiry
+
+    def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
+        """Subclass hook: raise ValueError if `inquiry` type is not allowed."""
+        raise NotImplementedError
+
+    def _assert_inquiry_belongs(self, inquiry: Inquiry) -> None:
+        if inquiry.laporan_id != self.id:
+            raise ValueError("Inquiry does not belong to this laporan")
+
+    def make_inquiry_active(
+        self,
+        inquiry: Inquiry,
+        existing_inquiries: Iterable[Inquiry],
+    ) -> Inquiry:
+        """Promote inquiry from PROPOSED to ACTIVE.
+
+        Rejects if inquiry is not a valid type, does not belong to this laporan,
+        is not in PROPOSED status, or another active inquiry already exists.
+        """
+        self._assert_inquiry_type_allowed(inquiry)
+        self._assert_inquiry_belongs(inquiry)
+
+        if inquiry.status != InquiryStatus.PROPOSED:
+            raise ValueError("Can only activate inquiry from proposed status")
+
+        has_other_active = any(
+            existing.status == InquiryStatus.ACTIVE and existing.id != inquiry.id
+            for existing in existing_inquiries
+        )
+        if has_other_active:
+            raise ValueError("There is already an active inquiry for this laporan")
+
+        inquiry.status = InquiryStatus.ACTIVE
+        return inquiry
+
+    def reject_inquiry(self, inquiry: Inquiry) -> Inquiry:
+        """Reject inquiry. Allowed from PROPOSED or ACTIVE."""
+        self._assert_inquiry_type_allowed(inquiry)
+        self._assert_inquiry_belongs(inquiry)
+
+        if inquiry.status not in {
+            InquiryStatus.PROPOSED,
+            InquiryStatus.ACTIVE,
+        }:
+            raise ValueError("Can only reject inquiry from proposed or active status")
+
+        inquiry.status = InquiryStatus.REJECTED
+        return inquiry
+
 
 @dataclass
 class LaporanHilang(Laporan):
@@ -278,6 +350,10 @@ class LaporanHilang(Laporan):
 
         self.status = LaporanStatus.IN_PROGRESS
 
+    def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
+        if not isinstance(inquiry, FoundInquiry):
+            raise ValueError("LaporanHilang can only accept FoundInquiry")
+
 
 @dataclass
 class LaporanTemuan(Laporan):
@@ -347,3 +423,7 @@ class LaporanTemuan(Laporan):
 
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date
+
+    def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
+        if not isinstance(inquiry, ClaimInquiry):
+            raise ValueError("LaporanTemuan can only accept ClaimInquiry")

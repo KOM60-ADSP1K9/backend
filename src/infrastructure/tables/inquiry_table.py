@@ -13,6 +13,7 @@ from src.domain.entity.inquiry import (
     ClaimInquiry,
     FoundInquiry,
     Inquiry,
+    InquiryStatus,
     InquiryType,
 )
 from src.infrastructure.tables.laporan_table import LaporanTable
@@ -60,6 +61,17 @@ class InquiryTable(Base):
     send_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+    )
+
+    status: Mapped[InquiryStatus] = mapped_column(
+        Enum(
+            InquiryStatus,
+            name="inquirystatus",
+            values_callable=_enum_values,
+        ),
+        nullable=False,
+        default=InquiryStatus.PROPOSED,
+        server_default=InquiryStatus.PROPOSED.value,
     )
 
     # ClaimInquiry-only fields
@@ -137,6 +149,7 @@ class InquiryTable(Base):
                 claimer_contact=self.claimer_contact or "",
                 proof_of_ownership=self.proof_of_ownership or "",
                 ktm=self.ktm or "",
+                status=self.status,
                 created_at=self.created_at,
                 updated_at=self.updated_at,
             )
@@ -150,6 +163,7 @@ class InquiryTable(Base):
                 send_date=self.send_date,
                 finder_contact=self.finder_contact or "",
                 photo=self.photo or "",
+                status=self.status,
                 created_at=self.created_at,
                 updated_at=self.updated_at,
             )
@@ -170,6 +184,7 @@ class InquiryTable(Base):
                 claimer_contact=getattr(inquiry, "claimer_contact", None),
                 proof_of_ownership=getattr(inquiry, "proof_of_ownership", None),
                 ktm=getattr(inquiry, "ktm", None),
+                status=getattr(inquiry, "status", InquiryStatus.PROPOSED),
                 created_at=inquiry.created_at,
                 updated_at=inquiry.updated_at,
             )
@@ -184,6 +199,7 @@ class InquiryTable(Base):
                 send_date=inquiry.send_date,
                 finder_contact=getattr(inquiry, "finder_contact", None),
                 photo=getattr(inquiry, "photo", None),
+                status=getattr(inquiry, "status", InquiryStatus.PROPOSED),
                 created_at=inquiry.created_at,
                 updated_at=inquiry.updated_at,
             )

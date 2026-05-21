@@ -15,6 +15,14 @@ class InquiryType(str, enum.Enum):
     FOUND = "found"
 
 
+class InquiryStatus(str, enum.Enum):
+    """Lifecycle states for inquiry."""
+
+    PROPOSED = "proposed"
+    ACTIVE = "active"
+    REJECTED = "rejected"
+
+
 @dataclass
 class Inquiry(ABC):
     """Base inquiry domain model."""
@@ -25,6 +33,7 @@ class Inquiry(ABC):
     sender_user_id: UUID
     message_content: str
     send_date: datetime.datetime
+    status: InquiryStatus = InquiryStatus.PROPOSED
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
 
@@ -36,6 +45,7 @@ class Inquiry(ABC):
         sender_user_id: UUID,
         message_content: str,
         send_date: datetime.datetime,
+        status: InquiryStatus = InquiryStatus.PROPOSED,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
@@ -45,6 +55,7 @@ class Inquiry(ABC):
         self.sender_user_id = sender_user_id
         self.message_content = message_content
         self.send_date = send_date
+        self.status = status
         self.created_at = created_at
         self.updated_at = updated_at
 
@@ -67,6 +78,7 @@ class ClaimInquiry(Inquiry):
         claimer_contact: str,
         proof_of_ownership: str,
         ktm: str,
+        status: InquiryStatus = InquiryStatus.PROPOSED,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
@@ -77,6 +89,7 @@ class ClaimInquiry(Inquiry):
             sender_user_id=sender_user_id,
             message_content=message_content,
             send_date=send_date,
+            status=status,
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -126,6 +139,7 @@ class FoundInquiry(Inquiry):
         send_date: datetime.datetime,
         finder_contact: str,
         photo: str,
+        status: InquiryStatus = InquiryStatus.PROPOSED,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
@@ -136,6 +150,7 @@ class FoundInquiry(Inquiry):
             sender_user_id=sender_user_id,
             message_content=message_content,
             send_date=send_date,
+            status=status,
             created_at=created_at,
             updated_at=updated_at,
         )
