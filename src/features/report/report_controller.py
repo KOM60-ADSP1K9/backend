@@ -1,5 +1,6 @@
 """Report controller.
 
+GET   /reports/{laporan_id} – Get laporan detail with all inquiries (authenticated)
 PATCH /reports/{laporan_id}/status – Update laporan status (owner only)
 PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
 PATCH /reports/{laporan_id}/details – Update laporan location and date (owner only)
@@ -17,10 +18,12 @@ from src.core.auth import get_current_user
 from src.core.exceptions import BadRequestException, RequestTooLargeException
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.domain.entity.barang import Barang
+from src.domain.entity.inquiry import InquiryStatus, InquiryType
 from src.domain.entity.laporan import Laporan, LaporanStatus, LaporanType
 from src.domain.entity.user import User
 from src.features.report.report_dependencies import (
     get_delete_laporan_usecase,
+    get_laporan_detail_usecase,
     get_update_laporan_barang_usecase,
     get_update_laporan_details_usecase,
     get_update_laporan_status_usecase,
@@ -28,6 +31,9 @@ from src.features.report.report_dependencies import (
 from src.features.report.usecase.delete_laporan_usecase import (
     DeleteLaporanRequest,
     DeleteLaporanUsecase,
+)
+from src.features.report.usecase.get_laporan_detail_usecase import (
+    GetLaporanDetailUsecase,
 )
 from src.features.report.usecase.update_laporan_barang_usecase import (
     UpdateLaporanBarangRequest,
@@ -41,8 +47,152 @@ from src.features.report.usecase.update_laporan_status_usecase import (
     UpdateLaporanStatusRequest,
     UpdateLaporanStatusUsecase,
 )
+from src.infrastructure.tables.inquiry_table import InquiryTable
+from src.infrastructure.tables.laporan_table import LaporanTable
 
 report_router = APIRouter(prefix="/reports", tags=["reports_management"])
+
+
+class LaporanDetailKategoriBarangResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+
+
+class LaporanDetailBarangResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: str
+    photo: str
+    kategori_barang_id: UUID | None = None
+    kategori_barang: LaporanDetailKategoriBarangResponseDto | None = None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class LaporanDetailUserResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    nim: str | None
+    nip: str | None
+
+
+class LaporanDetailInquiryResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    type: InquiryType
+    status: InquiryStatus
+    laporan_id: UUID
+    sender_user_id: UUID
+    sender: LaporanDetailUserResponseDto | None
+    message_content: str
+    send_date: datetime
+    claimer_contact: str | None = None
+    proof_of_ownership: str | None = None
+    ktm: str | None = None
+    finder_contact: str | None = None
+    photo: str | None = None
+    created_at: datetime | None
+    updated_at: datetime | None
+    is_owned: bool
+
+
+class LaporanDetailResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    type: LaporanType
+    status: LaporanStatus
+    lost_at_location_id: UUID | None
+    lost_at_date: date | None
+    found_at_location_id: UUID | None
+    found_at_date: date | None
+    created_at: datetime | None
+    updated_at: datetime | None
+    barang: LaporanDetailBarangResponseDto
+    user: LaporanDetailUserResponseDto | None
+    is_owned: bool
+    inquiries: list[LaporanDetailInquiryResponseDto]
+
+
+def _to_laporan_detail_inquiry_response_dto(
+    inquiry: InquiryTable,
+    current_user_id: UUID,
+) -> LaporanDetailInquiryResponseDto:
+    return LaporanDetailInquiryResponseDto(
+        id=inquiry.id,
+        type=inquiry.type,
+        status=inquiry.status,
+        laporan_id=inquiry.laporan_id,
+        sender_user_id=inquiry.sender_user_id,
+        sender=(
+            LaporanDetailUserResponseDto.model_validate(inquiry.sender)
+            if inquiry.sender is not None
+            else None
+        ),
+        message_content=inquiry.message_content,
+        send_date=inquiry.send_date,
+        claimer_contact=inquiry.claimer_contact,
+        proof_of_ownership=inquiry.proof_of_ownership,
+        ktm=inquiry.ktm,
+        finder_contact=inquiry.finder_contact,
+        photo=inquiry.photo,
+        created_at=inquiry.created_at,
+        updated_at=inquiry.updated_at,
+        is_owned=inquiry.sender_user_id == current_user_id,
+    )
+
+
+def _to_laporan_detail_response_dto(
+    laporan: LaporanTable,
+    current_user_id: UUID,
+) -> LaporanDetailResponseDto:
+    return LaporanDetailResponseDto(
+        id=laporan.id,
+        type=laporan.type,
+        status=laporan.status,
+        lost_at_location_id=getattr(laporan, "lost_at_location_id", None),
+        lost_at_date=getattr(laporan, "lost_at_date", None),
+        found_at_location_id=getattr(laporan, "found_at_location_id", None),
+        found_at_date=getattr(laporan, "found_at_date", None),
+        created_at=laporan.created_at,
+        updated_at=laporan.updated_at,
+        barang=LaporanDetailBarangResponseDto.model_validate(laporan.barang),
+        user=(
+            LaporanDetailUserResponseDto.model_validate(laporan.user)
+            if laporan.user is not None
+            else None
+        ),
+        is_owned=laporan.user_id == current_user_id,
+        inquiries=[
+            _to_laporan_detail_inquiry_response_dto(inquiry, current_user_id)
+            for inquiry in laporan.inquiries
+        ],
+    )
+
+
+@report_router.get(
+    "/{laporan_id}",
+    response_model=HTTPDataResponse[LaporanDetailResponseDto],
+)
+async def get_laporan_detail(
+    laporan_id: UUID,
+    current_user: User = Depends(get_current_user),
+    usecase: GetLaporanDetailUsecase = Depends(get_laporan_detail_usecase),
+) -> HTTPDataResponse[LaporanDetailResponseDto]:
+    """Get a single laporan with all its inquiries."""
+    result = await usecase.execute(laporan_id=laporan_id)
+
+    return HTTPDataResponse[LaporanDetailResponseDto](
+        status="success",
+        data=_to_laporan_detail_response_dto(result.laporan, current_user.id),
+        message="Laporan detail fetched successfully",
+    )
 
 
 class UserUpdatableLaporanStatus(str, enum.Enum):
