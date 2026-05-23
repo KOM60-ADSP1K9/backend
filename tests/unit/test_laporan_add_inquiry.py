@@ -9,7 +9,7 @@ from src.domain.entity.inquiry import (
     FoundInquiry,
     InquiryStatus,
 )
-from src.domain.entity.laporan import LaporanHilang, LaporanTemuan
+from src.domain.entity.laporan import LaporanHilang, LaporanStatus, LaporanTemuan
 
 
 def _make_claim_inquiry(
@@ -50,6 +50,18 @@ def _active_temuan() -> LaporanTemuan:
 def _active_hilang() -> LaporanHilang:
     laporan = LaporanHilang.New(user_id=uuid4())
     laporan.mark_as_active()
+    return laporan
+
+
+def _claim_pending_temuan() -> LaporanTemuan:
+    laporan = _active_temuan()
+    laporan.mark_as_claim_pending()
+    return laporan
+
+
+def _found_claim_pending_hilang() -> LaporanHilang:
+    laporan = _active_hilang()
+    laporan.mark_as_found_claim_pending()
     return laporan
 
 
@@ -123,7 +135,7 @@ class TestLaporanTemuanAddInquiry:
         laporan = LaporanTemuan.New(user_id=uuid4())  # status=DRAFT
         new_inquiry = _make_claim_inquiry(laporan.id)
 
-        with pytest.raises(ValueError, match="active status"):
+        with pytest.raises(ValueError, match="active or pending status"):
             laporan.add_inquiry(new_inquiry)
 
     def test_rejects_when_sender_is_owner(self) -> None:
@@ -191,7 +203,7 @@ class TestLaporanHilangAddInquiry:
         laporan = LaporanHilang.New(user_id=uuid4())  # status=DRAFT
         new_inquiry = _make_found_inquiry(laporan.id)
 
-        with pytest.raises(ValueError, match="active status"):
+        with pytest.raises(ValueError, match="active or pending status"):
             laporan.add_inquiry(new_inquiry)
 
     def test_rejects_when_sender_is_owner(self) -> None:
@@ -210,7 +222,7 @@ class TestLaporanHilangAddInquiry:
 
 class TestLaporanMakeInquiryActive:
     def test_promotes_proposed_to_active(self) -> None:
-        laporan = _active_temuan()
+        laporan = _claim_pending_temuan()
         inquiry = _make_claim_inquiry(laporan.id, InquiryStatus.PROPOSED)
         laporan.inquiries.append(inquiry)
 
@@ -218,6 +230,7 @@ class TestLaporanMakeInquiryActive:
 
         assert result is inquiry
         assert inquiry.status == InquiryStatus.ACTIVE
+        assert laporan.status == LaporanStatus.IN_PROGRESS
 
     def test_rejects_wrong_inquiry_type(self) -> None:
         laporan = _active_hilang()
@@ -254,7 +267,7 @@ class TestLaporanMakeInquiryActive:
         assert new.status == InquiryStatus.PROPOSED
 
     def test_self_in_existing_list_does_not_block(self) -> None:
-        laporan = _active_temuan()
+        laporan = _claim_pending_temuan()
         inquiry = _make_claim_inquiry(laporan.id, InquiryStatus.PROPOSED)
         other_rejected = _make_claim_inquiry(laporan.id, InquiryStatus.REJECTED)
         laporan.inquiries.extend([inquiry, other_rejected])
@@ -262,6 +275,7 @@ class TestLaporanMakeInquiryActive:
         result = laporan.make_inquiry_active(inquiry)
 
         assert result.status == InquiryStatus.ACTIVE
+        assert laporan.status == LaporanStatus.IN_PROGRESS
 
 
 class TestLaporanRejectInquiry:
@@ -304,3 +318,128 @@ class TestLaporanRejectInquiry:
 
         with pytest.raises(ValueError, match="does not belong"):
             laporan.reject_inquiry(inquiry)
+
+
+class TestLaporanStatusOnInquiryTransition:
+    def test_add_inquiry_transitions_active_to_claim_pending(self) -> None:
+        laporan = _active_temuan()
+        inquiry = _make_claim_inquiry(laporan.id)
+
+        laporan.add_inquiry(inquiry)
+
+        assert laporan.status == LaporanStatus.CLAIM_PENDING
+
+    def test_add_inquiry_transitions_active_to_found_claim_pending(self) -> None:
+        laporan = _active_hilang()
+        inquiry = _make_found_inquiry(laporan.id)
+
+        laporan.add_inquiry(inquiry)
+
+        assert laporan.status == LaporanStatus.FOUND_CLAIM_PENDING
+
+    def test_add_inquiry_allowed_when_already_claim_pending(self) -> None:
+        laporan = _active_temuan()
+        first = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(first)
+        second = _make_claim_inquiry(laporan.id)
+
+        laporan.add_inquiry(second)
+
+        assert laporan.status == LaporanStatus.CLAIM_PENDING
+        assert second in laporan.inquiries
+
+    def test_add_inquiry_allowed_when_already_found_claim_pending(self) -> None:
+        laporan = _active_hilang()
+        first = _make_found_inquiry(laporan.id)
+        laporan.add_inquiry(first)
+        second = _make_found_inquiry(laporan.id)
+
+        laporan.add_inquiry(second)
+
+        assert laporan.status == LaporanStatus.FOUND_CLAIM_PENDING
+        assert second in laporan.inquiries
+
+    def test_make_inquiry_active_sets_laporan_in_progress_temuan(self) -> None:
+        laporan = _active_temuan()
+        inquiry = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(inquiry)
+
+        laporan.make_inquiry_active(inquiry)
+
+        assert laporan.status == LaporanStatus.IN_PROGRESS
+        assert inquiry.status == InquiryStatus.ACTIVE
+
+    def test_make_inquiry_active_sets_laporan_in_progress_hilang(self) -> None:
+        laporan = _active_hilang()
+        inquiry = _make_found_inquiry(laporan.id)
+        laporan.add_inquiry(inquiry)
+
+        laporan.make_inquiry_active(inquiry)
+
+        assert laporan.status == LaporanStatus.IN_PROGRESS
+        assert inquiry.status == InquiryStatus.ACTIVE
+
+    def test_reject_active_inquiry_reverts_to_active_when_no_proposed(self) -> None:
+        laporan = _active_temuan()
+        inquiry = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(inquiry)
+        laporan.make_inquiry_active(inquiry)
+
+        laporan.reject_inquiry(inquiry)
+
+        assert laporan.status == LaporanStatus.ACTIVE
+        assert inquiry.status == InquiryStatus.REJECTED
+
+    def test_reject_active_inquiry_reverts_to_claim_pending_when_proposed_remains(
+        self,
+    ) -> None:
+        laporan = _active_temuan()
+        active_inquiry = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(active_inquiry)
+        laporan.make_inquiry_active(active_inquiry)
+        proposed = _make_claim_inquiry(laporan.id, InquiryStatus.PROPOSED)
+        laporan.inquiries.append(proposed)
+
+        laporan.reject_inquiry(active_inquiry)
+
+        assert laporan.status == LaporanStatus.CLAIM_PENDING
+        assert active_inquiry.status == InquiryStatus.REJECTED
+
+    def test_reject_active_inquiry_reverts_to_found_claim_pending_when_proposed_remains(
+        self,
+    ) -> None:
+        laporan = _active_hilang()
+        active_inquiry = _make_found_inquiry(laporan.id)
+        laporan.add_inquiry(active_inquiry)
+        laporan.make_inquiry_active(active_inquiry)
+        proposed = _make_found_inquiry(laporan.id, InquiryStatus.PROPOSED)
+        laporan.inquiries.append(proposed)
+
+        laporan.reject_inquiry(active_inquiry)
+
+        assert laporan.status == LaporanStatus.FOUND_CLAIM_PENDING
+        assert active_inquiry.status == InquiryStatus.REJECTED
+
+    def test_reject_last_proposed_reverts_laporan_to_active(self) -> None:
+        laporan = _active_temuan()
+        inquiry = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(inquiry)
+
+        laporan.reject_inquiry(inquiry)
+
+        assert laporan.status == LaporanStatus.ACTIVE
+        assert inquiry.status == InquiryStatus.REJECTED
+
+    def test_reject_proposed_keeps_claim_pending_when_other_proposed_remains(
+        self,
+    ) -> None:
+        laporan = _active_temuan()
+        first = _make_claim_inquiry(laporan.id)
+        second = _make_claim_inquiry(laporan.id)
+        laporan.add_inquiry(first)
+        laporan.add_inquiry(second)
+
+        laporan.reject_inquiry(first)
+
+        assert laporan.status == LaporanStatus.CLAIM_PENDING
+        assert first.status == InquiryStatus.REJECTED

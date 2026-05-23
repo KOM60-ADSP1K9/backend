@@ -164,7 +164,7 @@ class TestCreateClaimInquiry:
         )
 
         assert resp.status_code == 400
-        assert "active status" in resp.json()["error"]
+        assert "active or pending status" in resp.json()["error"]
 
     @pytest.mark.asyncio
     async def test_rejects_when_sender_is_owner(
@@ -337,7 +337,7 @@ class TestCreateFoundInquiry:
         )
 
         assert resp.status_code == 400
-        assert "active status" in resp.json()["error"]
+        assert "active or pending status" in resp.json()["error"]
 
     @pytest.mark.asyncio
     async def test_rejects_when_sender_is_owner(
@@ -389,6 +389,10 @@ async def _seed_laporan_temuan_with_claim_inquiry(
     )
     inquiry.status = inquiry_status
     laporan.inquiries.append(inquiry)
+    if inquiry_status == InquiryStatus.PROPOSED:
+        laporan.status = LaporanStatus.CLAIM_PENDING
+    elif inquiry_status == InquiryStatus.ACTIVE:
+        laporan.status = LaporanStatus.IN_PROGRESS
     saved = await LaporanRepository(db).update(laporan)
     assert isinstance(saved, LaporanTemuan)
     saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)
@@ -412,6 +416,10 @@ async def _seed_laporan_hilang_with_found_inquiry(
     )
     inquiry.status = inquiry_status
     laporan.inquiries.append(inquiry)
+    if inquiry_status == InquiryStatus.PROPOSED:
+        laporan.status = LaporanStatus.FOUND_CLAIM_PENDING
+    elif inquiry_status == InquiryStatus.ACTIVE:
+        laporan.status = LaporanStatus.IN_PROGRESS
     saved = await LaporanRepository(db).update(laporan)
     assert isinstance(saved, LaporanHilang)
     saved_inquiry = next(i for i in saved.inquiries if i.id == inquiry.id)

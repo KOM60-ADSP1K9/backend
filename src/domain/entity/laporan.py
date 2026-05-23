@@ -189,11 +189,15 @@ class Laporan(ABC):
         """Validate and append a new inquiry to this laporan's aggregate.
 
         Subclasses enforce inquiry-type compatibility via `_assert_inquiry_type_allowed`.
-        Laporan must be in ACTIVE status. Rejects if any inquiry already attached has
-        status ACTIVE.
+        Laporan must be in ACTIVE or its pending status (CLAIM_PENDING/FOUND_CLAIM_PENDING).
+        Rejects if any inquiry already attached has status ACTIVE. When laporan is ACTIVE,
+        transitions it to the pending status after appending.
         """
-        if self.status != LaporanStatus.ACTIVE:
-            raise ValueError("Can only add inquiry to laporan with active status")
+        pending_status = self._pending_status()
+        if self.status not in {LaporanStatus.ACTIVE, pending_status}:
+            raise ValueError(
+                "Can only add inquiry to laporan with active or pending status"
+            )
 
         if inquiry.sender_user_id == self.user_id:
             raise ValueError("Cannot add inquiry to your own laporan")
@@ -209,6 +213,8 @@ class Laporan(ABC):
             )
 
         self.inquiries.append(inquiry)
+        if self.status == LaporanStatus.ACTIVE:
+            self._mark_pending()
         return inquiry
 
     def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
@@ -219,8 +225,16 @@ class Laporan(ABC):
         if inquiry.laporan_id != self.id:
             raise ValueError("Inquiry does not belong to this laporan")
 
+    def _pending_status(self) -> LaporanStatus:
+        """Subclass hook: pending status used while inquiries are open."""
+        raise NotImplementedError
+
+    def _mark_pending(self) -> None:
+        """Subclass hook: transition laporan into its pending status."""
+        raise NotImplementedError
+
     def make_inquiry_active(self, inquiry: Inquiry) -> Inquiry:
-        """Promote inquiry from PROPOSED to ACTIVE.
+        """Promote inquiry from PROPOSED to ACTIVE and transition laporan to IN_PROGRESS.
 
         Rejects if inquiry is not a valid type, does not belong to this laporan,
         is not in PROPOSED status, or another active inquiry already exists in
@@ -240,10 +254,17 @@ class Laporan(ABC):
             raise ValueError("There is already an active inquiry for this laporan")
 
         inquiry.status = InquiryStatus.ACTIVE
+        self.mark_as_in_progress()
         return inquiry
 
     def reject_inquiry(self, inquiry: Inquiry) -> Inquiry:
-        """Reject inquiry. Allowed from PROPOSED or ACTIVE."""
+        """Reject inquiry. Allowed from PROPOSED or ACTIVE.
+
+        After rejection, laporan status is recomputed from remaining inquiries:
+        - any ACTIVE remaining -> IN_PROGRESS
+        - any PROPOSED remaining -> pending status (CLAIM_PENDING/FOUND_CLAIM_PENDING)
+        - otherwise -> ACTIVE
+        """
         self._assert_inquiry_type_allowed(inquiry)
         self._assert_inquiry_belongs(inquiry)
 
@@ -254,6 +275,19 @@ class Laporan(ABC):
             raise ValueError("Can only reject inquiry from proposed or active status")
 
         inquiry.status = InquiryStatus.REJECTED
+
+        has_active = any(
+            existing.status == InquiryStatus.ACTIVE for existing in self.inquiries
+        )
+        has_proposed = any(
+            existing.status == InquiryStatus.PROPOSED for existing in self.inquiries
+        )
+        if has_active:
+            self.status = LaporanStatus.IN_PROGRESS
+        elif has_proposed:
+            self.status = self._pending_status()
+        else:
+            self.status = LaporanStatus.ACTIVE
         return inquiry
 
 
@@ -358,6 +392,12 @@ class LaporanHilang(Laporan):
         if not isinstance(inquiry, FoundInquiry):
             raise ValueError("LaporanHilang can only accept FoundInquiry")
 
+    def _pending_status(self) -> LaporanStatus:
+        return LaporanStatus.FOUND_CLAIM_PENDING
+
+    def _mark_pending(self) -> None:
+        self.mark_as_found_claim_pending()
+
 
 @dataclass
 class LaporanTemuan(Laporan):
@@ -433,3 +473,9 @@ class LaporanTemuan(Laporan):
     def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
         if not isinstance(inquiry, ClaimInquiry):
             raise ValueError("LaporanTemuan can only accept ClaimInquiry")
+
+    def _pending_status(self) -> LaporanStatus:
+        return LaporanStatus.CLAIM_PENDING
+
+    def _mark_pending(self) -> None:
+        self.mark_as_claim_pending()
