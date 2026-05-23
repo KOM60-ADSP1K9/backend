@@ -12,7 +12,6 @@ from src.domain.entity.i_laporan_repository import ILaporanRepository
 from src.domain.entity.inquiry import Inquiry, InquiryStatus
 
 
-# TODO: change to 2 use cases: one for activating, one for rejecting. This is to prevent invalid status transition (e.g. directly from REJECTED to ACTIVE)
 class UpdateInquiryStatusRequest:
     def __init__(
         self,

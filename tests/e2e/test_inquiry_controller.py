@@ -8,6 +8,7 @@ PATCH /inquiries/{inquiry_id}/status – Owner-only transition of inquiry status
 """
 
 from datetime import date
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -75,6 +76,16 @@ def _found_form(laporan_id) -> dict:
 
 def _found_files() -> dict:
     return {"photo": ("photo.jpg", b"fake-photo", "image/jpeg")}
+
+
+@pytest.fixture(autouse=True)
+def _mock_inquiry_notification_email():
+    """Avoid hitting real SMTP when creating inquiries in e2e tests."""
+    with patch(
+        "src.infrastructure.services.smtp_email_service.SmtpEmailService.send_inquiry_notification",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
 
 
 class TestCreateClaimInquiry:
