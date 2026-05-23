@@ -10,6 +10,9 @@ from src.domain.entity.i_lokasi_repository import ILokasiRepository
 from src.features.report.usecase.delete_laporan_usecase import (
     DeleteLaporanUsecase,
 )
+from src.features.report.usecase.get_laporan_detail_usecase import (
+    GetLaporanDetailUsecase,
+)
 from src.features.report.usecase.update_laporan_barang_usecase import (
     UpdateLaporanBarangUsecase,
 )
@@ -77,6 +80,12 @@ def get_update_laporan_details_usecase(
         laporan_repository=laporan_repository,
         lokasi_repository=lokasi_repository,
     )
+
+
+def get_laporan_detail_usecase(
+    db: AsyncSession = Depends(get_async_db_session),
+) -> GetLaporanDetailUsecase:
+    return GetLaporanDetailUsecase(db=db)
 
 
 def get_delete_laporan_usecase(

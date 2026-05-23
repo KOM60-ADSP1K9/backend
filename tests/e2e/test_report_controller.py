@@ -2,6 +2,7 @@
 
 Endpoints under test
 ────────────────────
+GET   /reports/{laporan_id}         – Get laporan detail with all inquiries
 PATCH /reports/{laporan_id}/status – Update laporan status (owner only)
 PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
 PATCH /reports/{laporan_id}/details – Update laporan location and date (owner only)
@@ -15,6 +16,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entity.barang import Barang
+from src.domain.entity.inquiry import ClaimInquiry, FoundInquiry, InquiryStatus
 from src.domain.entity.laporan import LaporanHilang, LaporanStatus, LaporanTemuan
 from src.domain.entity.user import User
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
@@ -22,6 +24,7 @@ from src.infrastructure.tables.lokasi_table import LokasiTable
 from tests.e2e.helpers import (
     get_auth_header,
     seed_kategori_barang,
+    seed_other_verified_mahasiswa,
     seed_verified_mahasiswa,
     seed_verified_staff,
 )
@@ -974,3 +977,255 @@ class TestDeleteLaporan:
 
         reloaded = await LaporanRepository(db_session).findById(laporan.id)
         assert reloaded is not None
+
+
+class TestGetLaporanDetail:
+    """GET /reports/{laporan_id} – laporan detail with all inquiries."""
+
+    @pytest.mark.asyncio
+    async def test_owner_sees_is_owned_true_and_empty_inquiries(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(owner),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["message"] == "Laporan detail fetched successfully"
+        data = body["data"]
+        assert data["id"] == str(laporan.id)
+        assert data["type"] == "hilang"
+        assert data["status"] == "active"
+        assert data["is_owned"] is True
+        assert data["user"]["email"] == owner.email
+        assert data["barang"]["name"] == "KTP"
+        assert data["barang"]["kategori_barang"] is not None
+        assert data["inquiries"] == []
+
+        expected_keys = {
+            "id",
+            "type",
+            "status",
+            "lost_at_location_id",
+            "lost_at_date",
+            "found_at_location_id",
+            "found_at_date",
+            "created_at",
+            "updated_at",
+            "barang",
+            "user",
+            "is_owned",
+            "inquiries",
+        }
+        assert set(data.keys()) == expected_keys
+
+    @pytest.mark.asyncio
+    async def test_non_owner_sees_is_owned_false(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        viewer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(viewer),
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["is_owned"] is False
+        assert data["user"]["email"] == owner.email
+
+    @pytest.mark.asyncio
+    async def test_includes_claim_inquiry_with_sender_and_is_owned_flags(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_found_laporan(db_session, owner)
+
+        inquiry = ClaimInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer.id,
+            message_content="Saya pemilik barang ini",
+            claimer_contact="0812345678",
+            proof_of_ownership="stub://proof.jpg",
+            ktm="stub://ktm.jpg",
+        )
+        laporan.inquiries.append(inquiry)
+        await LaporanRepository(db_session).update(laporan)
+
+        owner_resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(owner),
+        )
+        assert owner_resp.status_code == 200
+        owner_data = owner_resp.json()["data"]
+        assert owner_data["is_owned"] is True
+        assert len(owner_data["inquiries"]) == 1
+
+        owner_inq = owner_data["inquiries"][0]
+        assert owner_inq["id"] == str(inquiry.id)
+        assert owner_inq["type"] == "claim"
+        assert owner_inq["status"] == "proposed"
+        assert owner_inq["sender_user_id"] == str(inquirer.id)
+        assert owner_inq["sender"]["email"] == inquirer.email
+        assert owner_inq["claimer_contact"] == "0812345678"
+        assert owner_inq["proof_of_ownership"] == "stub://proof.jpg"
+        assert owner_inq["ktm"] == "stub://ktm.jpg"
+        assert owner_inq["finder_contact"] is None
+        assert owner_inq["photo"] is None
+        # owner is NOT the sender of this inquiry
+        assert owner_inq["is_owned"] is False
+
+        inquirer_resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(inquirer),
+        )
+        assert inquirer_resp.status_code == 200
+        inquirer_data = inquirer_resp.json()["data"]
+        # inquirer does NOT own the laporan
+        assert inquirer_data["is_owned"] is False
+        # inquirer DOES own the inquiry they sent
+        assert inquirer_data["inquiries"][0]["is_owned"] is True
+
+    @pytest.mark.asyncio
+    async def test_includes_found_inquiry_with_polymorphic_fields(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        inquiry = FoundInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer.id,
+            message_content="Saya menemukan barang ini",
+            finder_contact="0899999999",
+            photo="stub://found-photo.jpg",
+        )
+        laporan.inquiries.append(inquiry)
+        await LaporanRepository(db_session).update(laporan)
+
+        resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(owner),
+        )
+        assert resp.status_code == 200
+        inq = resp.json()["data"]["inquiries"][0]
+        assert inq["type"] == "found"
+        assert inq["finder_contact"] == "0899999999"
+        assert inq["photo"] == "stub://found-photo.jpg"
+        assert inq["claimer_contact"] is None
+        assert inq["proof_of_ownership"] is None
+        assert inq["ktm"] is None
+        assert inq["sender"]["email"] == inquirer.email
+
+        expected_inquiry_keys = {
+            "id",
+            "type",
+            "status",
+            "laporan_id",
+            "sender_user_id",
+            "sender",
+            "message_content",
+            "send_date",
+            "claimer_contact",
+            "proof_of_ownership",
+            "ktm",
+            "finder_contact",
+            "photo",
+            "created_at",
+            "updated_at",
+            "is_owned",
+        }
+        assert set(inq.keys()) == expected_inquiry_keys
+
+    @pytest.mark.asyncio
+    async def test_returns_all_inquiries_across_statuses(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer_a = await seed_other_verified_mahasiswa(db_session)
+        inquirer_b = await seed_other_verified_mahasiswa(
+            db_session,
+            email="inquirer-b@apps.ipb.ac.id",
+            nim="G6401299999",
+        )
+        laporan = await _seed_found_laporan(db_session, owner)
+
+        proposed = ClaimInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer_a.id,
+            message_content="proposed",
+            claimer_contact="0800000001",
+            proof_of_ownership="stub://p1.jpg",
+            ktm="stub://k1.jpg",
+        )
+        active = ClaimInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer_a.id,
+            message_content="active",
+            claimer_contact="0800000002",
+            proof_of_ownership="stub://p2.jpg",
+            ktm="stub://k2.jpg",
+        )
+        active.status = InquiryStatus.ACTIVE
+        rejected = ClaimInquiry.New(
+            laporan_id=laporan.id,
+            sender_user_id=inquirer_b.id,
+            message_content="rejected",
+            claimer_contact="0800000003",
+            proof_of_ownership="stub://p3.jpg",
+            ktm="stub://k3.jpg",
+        )
+        rejected.status = InquiryStatus.REJECTED
+        laporan.inquiries.extend([proposed, active, rejected])
+        await LaporanRepository(db_session).update(laporan)
+
+        resp = await client.get(
+            f"/reports/{laporan.id}",
+            headers=get_auth_header(owner),
+        )
+
+        assert resp.status_code == 200
+        inquiries = resp.json()["data"]["inquiries"]
+        assert len(inquiries) == 3
+        statuses = {i["status"] for i in inquiries}
+        assert statuses == {"proposed", "active", "rejected"}
+        senders = {i["sender_user_id"] for i in inquiries}
+        assert senders == {str(inquirer_a.id), str(inquirer_b.id)}
+        # owner never sent any inquiry
+        assert all(i["is_owned"] is False for i in inquiries)
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_laporan_missing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        viewer = await seed_verified_mahasiswa(db_session)
+
+        resp = await client.get(
+            f"/reports/{uuid4()}",
+            headers=get_auth_header(viewer),
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_returns_401_when_unauthenticated(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+
+        resp = await client.get(f"/reports/{laporan.id}")
+
+        assert resp.status_code in (401, 403)

@@ -31,6 +31,7 @@ class Settings:
         self.EMAIL_SALT = self._get_required("EMAIL_SALT")
 
         self.BASE_URL = self._get_required("BASE_URL")
+        self.FRONTEND_BASE_URL = self._get_required("FRONTEND_BASE_URL")
 
         self.SMTP_HOST = os.getenv("SMTP_HOST", "")
         self.SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
