@@ -5,7 +5,7 @@ Endpoints under test
 POST /found-reports – Create found report (authenticated users)
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -130,3 +130,47 @@ class TestCreateFoundReport:
         assert saved_report.user_id == staff.id
         assert saved_report.barang is not None
         assert saved_report.barang.kategori_barang_id == kategori.id
+
+    @pytest.mark.asyncio
+    async def test_should_fail_when_date_is_in_the_future(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Future found_at_date should fail PastDate validation before usecase execution."""
+        mahasiswa = await seed_verified_mahasiswa(db_session)
+        headers = get_auth_header(mahasiswa)
+
+        lokasi = LokasiTable(
+            name="Gedung Future",
+            latitude=-6.554321,
+            longitude=106.723456,
+        )
+        db_session.add(lokasi)
+        await db_session.flush()
+        kategori = await seed_kategori_barang(db_session)
+
+        future_date = (date.today() + timedelta(days=1)).isoformat()
+        resp = await client.post(
+            "/found-reports",
+            headers=headers,
+            data={
+                "barang_name": "Dompet",
+                "barang_description": "Dompet kulit cokelat",
+                "kategori_barang_id": str(kategori.id),
+                "found_at_location_id": str(lokasi.id),
+                "found_at_date": future_date,
+            },
+            files={"photo": ("found-card.jpg", b"fake-photo-bytes", "image/jpeg")},
+        )
+
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Validation failed"
+        assert any(
+            error["field"] == "body.found_at_date"
+            for error in body["errors"]
+            if isinstance(error, dict)
+        )
+
+        saved_reports = list(await LaporanRepository(db_session).findAll())
+        assert saved_reports == []

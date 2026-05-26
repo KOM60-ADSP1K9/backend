@@ -4,7 +4,7 @@ from datetime import date
 from uuid import UUID
 
 from src.application.i_storage_service import IStorageService
-from src.core.exceptions import NotFoundException
+from src.core.exceptions import BadRequestException, NotFoundException
 from src.domain.entity.barang import Barang
 from src.domain.entity.i_lokasi_repository import ILokasiRepository
 from src.domain.entity.i_laporan_repository import ILaporanRepository
@@ -71,12 +71,15 @@ class CreateFoundReportUsecase:
             kategori_barang_id=request.kategori_barang_id,
         )
 
-        laporan = LaporanTemuan.New(
-            found_at_location_id=request.found_at_location_id,
-            found_at_date=request.found_at_date,
-            user_id=request.user_id,
-            status=LaporanStatus.ACTIVE,
-        )
+        try:
+            laporan = LaporanTemuan.New(
+                found_at_location_id=request.found_at_location_id,
+                found_at_date=request.found_at_date,
+                user_id=request.user_id,
+                status=LaporanStatus.ACTIVE,
+            )
+        except ValueError as exc:
+            raise BadRequestException(str(exc)) from exc
         laporan.addBarang(barang)
 
         saved_laporan = await self._laporan_repository.save(laporan)

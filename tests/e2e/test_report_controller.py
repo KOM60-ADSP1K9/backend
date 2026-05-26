@@ -8,7 +8,7 @@ PATCH /reports/{laporan_id}/barang – Update laporan barang (owner only)
 PATCH /reports/{laporan_id}/details – Update laporan location and date (owner only)
 """
 
-from datetime import date
+from datetime import date, timedelta
 from uuid import uuid4
 
 import pytest
@@ -834,6 +834,47 @@ class TestUpdateLaporanDetails:
         )
 
         assert resp.status_code in (401, 403)
+
+    @pytest.mark.asyncio
+    async def test_returns_422_when_date_is_in_the_future(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Future date should fail PastDate validation and not mutate the laporan."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        new_lokasi = LokasiTable(
+            name="Gedung Future",
+            latitude=-6.540000,
+            longitude=106.740000,
+        )
+        db_session.add(new_lokasi)
+        await db_session.flush()
+        headers = get_auth_header(owner)
+
+        future_date = (date.today() + timedelta(days=1)).isoformat()
+        resp = await client.patch(
+            f"/reports/{laporan.id}/details",
+            headers=headers,
+            json={
+                "location_id": str(new_lokasi.id),
+                "date": future_date,
+            },
+        )
+
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"] == "Validation failed"
+        assert any(
+            error["field"] == "body.date"
+            for error in body["errors"]
+            if isinstance(error, dict)
+        )
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert isinstance(reloaded, LaporanHilang)
+        assert reloaded.lost_at_date == date(2026, 4, 29)
 
 
 class TestDeleteLaporan:

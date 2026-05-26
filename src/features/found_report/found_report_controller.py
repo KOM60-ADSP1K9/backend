@@ -7,7 +7,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PastDate
 
 from src.core.auth import get_current_user
 from src.core.exceptions import BadRequestException, RequestTooLargeException
@@ -77,7 +77,7 @@ async def create_found_report(
     barang_description: str = Form(...),
     kategori_barang_id: UUID = Form(...),
     found_at_location_id: UUID | None = Form(None),
-    found_at_date: date = Form(...),
+    found_at_date: PastDate = Form(...),
     current_user: User = Depends(get_current_user),
     usecase: CreateFoundReportUsecase = Depends(get_create_found_report_usecase),
 ) -> HTTPDataResponse[CreateFoundReportResponseDto]:

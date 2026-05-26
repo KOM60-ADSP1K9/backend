@@ -12,7 +12,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PastDate
 
 from src.core.auth import get_current_user
 from src.core.exceptions import BadRequestException, RequestTooLargeException
@@ -366,7 +366,7 @@ async def update_laporan_barang(
 
 class UpdateLaporanDetailsRequestDto(BaseModel):
     location_id: UUID
-    date: date
+    date: PastDate
 
 
 class UpdateLaporanDetailsResponseDto(BaseModel):

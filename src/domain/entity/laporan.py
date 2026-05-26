@@ -11,6 +11,14 @@ from .barang import Barang
 from .inquiry import ClaimInquiry, FoundInquiry, Inquiry, InquiryStatus
 
 
+def _assert_date_not_future(value: datetime.date | None, field_name: str) -> None:
+    if value is None:
+        return
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    if value > today:
+        raise ValueError(f"{field_name} cannot be in the future")
+
+
 class LaporanType(str, enum.Enum):
     """HILANG OR TEMUAN."""
 
@@ -341,6 +349,7 @@ class LaporanHilang(Laporan):
         barang: Barang | None = None,
     ) -> Self:
         """Create a new lost-item laporan."""
+        _assert_date_not_future(lost_at_date, "lost_at_date")
         now = datetime.datetime.now(datetime.timezone.utc)
         return cls(
             id=uuid4(),
@@ -358,6 +367,7 @@ class LaporanHilang(Laporan):
     ) -> None:
         """Update laporan hilang details."""
         self.assert_can_update()
+        _assert_date_not_future(lost_at_date, "lost_at_date")
 
         self.lost_at_location_id = lost_at_location_id
         self.lost_at_date = lost_at_date
@@ -449,6 +459,7 @@ class LaporanTemuan(Laporan):
         barang: Barang | None = None,
     ) -> Self:
         """Create a new found-item laporan."""
+        _assert_date_not_future(found_at_date, "found_at_date")
         now = datetime.datetime.now(datetime.timezone.utc)
         return cls(
             id=uuid4(),
@@ -466,6 +477,7 @@ class LaporanTemuan(Laporan):
     ) -> None:
         """Update laporan temuan details."""
         self.assert_can_update()
+        _assert_date_not_future(found_at_date, "found_at_date")
 
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date
