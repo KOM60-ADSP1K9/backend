@@ -8,6 +8,8 @@ import datetime
 from typing import Self
 from uuid import UUID, uuid4
 
+from src.domain.entity.fakultas import is_valid_departemen, is_valid_fakultas
+
 ALLOWED_EMAIL_DOMAIN = "@apps.ipb.ac.id"
 
 
@@ -19,6 +21,13 @@ class UserRole(str, enum.Enum):
 def _assert_email_domain(email: str) -> None:
     if not email.endswith(ALLOWED_EMAIL_DOMAIN):
         raise ValueError(f"Hanya {ALLOWED_EMAIL_DOMAIN} email yang diperbolehkan")
+
+
+def _assert_fakultas_departemen(fakultas: str, departemen: str) -> None:
+    if not is_valid_fakultas(fakultas):
+        raise ValueError(f"Fakultas '{fakultas}' tidak valid")
+    if not is_valid_departemen(fakultas, departemen):
+        raise ValueError(f"Departemen '{departemen}' tidak valid untuk {fakultas}")
 
 
 @dataclass
@@ -151,6 +160,7 @@ class Mahasiswa(User):
     ) -> Self:
         """Register a new mahasiswa user."""
         _assert_email_domain(email)
+        _assert_fakultas_departemen(fakultas or "", departemen or "")
         now = datetime.datetime.now(datetime.timezone.utc)
         return cls(
             id=uuid4(),

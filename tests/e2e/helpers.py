@@ -19,7 +19,7 @@ from src.infrastructure.tables.lokasi_table import LokasiTable
 VALID_EMAIL = "testuser@apps.ipb.ac.id"
 VALID_PASSWORD = "SecureP@ss123"
 VALID_NIM = "G6401211001"
-VALID_FAKULTAS = "FMIPA"
+VALID_FAKULTAS = "Sekolah Sains Data, Matematika, dan Informatika"
 VALID_DEPARTEMEN = "Ilmu Komputer"
 
 STAFF_EMAIL = "staff@apps.ipb.ac.id"

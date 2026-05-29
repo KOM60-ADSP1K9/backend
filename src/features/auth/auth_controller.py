@@ -4,6 +4,8 @@ Auth controller – all authentication-related endpoints.
 POST /auth/register     – Mahasiswa registration
 POST /auth/login        – Login (email + password)
 GET  /auth/verify-email – Verify email from link
+GET  /auth/fakultas      – List all fakultas (public)
+GET  /auth/fakultas/departemen – List departemen for a fakultas (public)
 GET  /auth/me           – Current user profile (protected)
 """
 
@@ -23,8 +25,10 @@ from src.features.auth.auth_dependencies import (
     get_verify_email_usecase,
 )
 from src.core.auth import get_current_user
+from src.core.exceptions import NotFoundException
 from src.core.http import HTTPDataResponse, HTTPMessageResponse
 from src.core.rate_limiter import rate_limit_dependency
+from src.domain.entity.fakultas import list_departemen, list_fakultas
 from src.domain.entity.lokasi import Lokasi
 from src.domain.entity.user import User, UserRole
 from src.features.auth.usecase.login_usecase import LoginRequest, LoginUsecase
@@ -175,6 +179,39 @@ async def verify_email(
     return HTTPMessageResponse(
         status="success",
         message="Verifikasi email berhasil",
+    )
+
+
+@auth_router.get(
+    "/fakultas",
+    response_model=HTTPDataResponse[list[str]],
+    dependencies=rate_limit_dependency(40, Duration.MINUTE),
+)
+async def get_fakultas() -> HTTPDataResponse[list[str]]:
+    """Get all fakultas."""
+    return HTTPDataResponse[list[str]](
+        status="success",
+        data=list_fakultas(),
+        message="Daftar fakultas berhasil diambil",
+    )
+
+
+@auth_router.get(
+    "/fakultas/departemen",
+    response_model=HTTPDataResponse[list[str]],
+    dependencies=rate_limit_dependency(40, Duration.MINUTE),
+)
+async def get_departemen(
+    fakultas: str = Query(..., description="Nama fakultas"),
+) -> HTTPDataResponse[list[str]]:
+    """Get all departemen for a single fakultas."""
+    departemen = list_departemen(fakultas)
+    if departemen is None:
+        raise NotFoundException(f"Fakultas '{fakultas}' tidak ditemukan")
+    return HTTPDataResponse[list[str]](
+        status="success",
+        data=departemen,
+        message="Daftar departemen berhasil diambil",
     )
 
 
