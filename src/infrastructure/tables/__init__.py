@@ -8,3 +8,4 @@ from .laporan_table import LaporanTemuanTable as LaporanTemuanTable
 from .inquiry_table import ClaimInquiryTable as ClaimInquiryTable
 from .inquiry_table import FoundInquiryTable as FoundInquiryTable
 from .inquiry_table import InquiryTable as InquiryTable
+from .notification_table import NotificationTable as NotificationTable
