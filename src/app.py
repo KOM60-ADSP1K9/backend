@@ -16,6 +16,7 @@ from src.features.kategori_barang.kategori_barang_controller import (
 )
 from src.features.user.user_controller import user_router
 from src.features.inquiry.inquiry_controller import inquiry_router
+from src.features.notification.notification_controller import notification_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -55,3 +56,6 @@ app.include_router(kategori_barang_router)
 
 # Inquiry module (protected – authenticated)
 app.include_router(inquiry_router)
+
+# Notification module (protected – authenticated)
+app.include_router(notification_router)

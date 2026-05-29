@@ -10,6 +10,7 @@ from src.domain.entity.i_laporan_repository import ILaporanRepository
 from src.domain.entity.i_user_repository import IUserRepository
 from src.domain.entity.inquiry import FoundInquiry, Inquiry, InquiryType
 from src.domain.entity.laporan import LaporanHilang
+from src.infrastructure.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,13 @@ class CreateFoundInquiryUsecase:
         storage_service: IStorageService,
         user_repository: IUserRepository,
         email_service: IEmailService,
+        notification_service: NotificationService,
     ) -> None:
         self._laporan_repository = laporan_repository
         self._storage_service = storage_service
         self._user_repository = user_repository
         self._email_service = email_service
+        self._notification_service = notification_service
 
     async def execute(
         self, request: CreateFoundInquiryRequest
@@ -90,6 +93,13 @@ class CreateFoundInquiryUsecase:
             saved_inquiry = inquiry
 
         await self._notify_owner(saved_laporan.user_id, saved_laporan.id)
+        await self._notification_service.notify_inquiry_created(
+            owner_id=saved_laporan.user_id,
+            sender_id=request.sender_user_id,
+            laporan_id=saved_laporan.id,
+            inquiry_id=saved_inquiry.id,
+            inquiry_type=InquiryType.FOUND,
+        )
 
         return CreateFoundInquiryResult(inquiry=saved_inquiry)
 
