@@ -257,6 +257,134 @@ class TestUpdateLaporanStatus:
         assert reloaded.status is LaporanStatus.SELF_RESOLVED
 
     @pytest.mark.asyncio
+    async def test_owner_can_mark_active_laporan_as_closed(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Owner should be able to transition ACTIVE → closed (cancel)."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.CLOSED.value},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["status"] == LaporanStatus.CLOSED.value
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_owner_can_mark_in_progress_temuan_as_resolved(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Temuan owner should be able to transition IN_PROGRESS → resolved after claim accepted."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_found_laporan(
+            db_session, owner, status=LaporanStatus.IN_PROGRESS
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.RESOLVED.value},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["status"] == LaporanStatus.RESOLVED.value
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.RESOLVED
+
+    @pytest.mark.asyncio
+    async def test_owner_can_mark_in_progress_hilang_as_resolved(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Hilang owner should be able to transition IN_PROGRESS → resolved after found inquiry accepted."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.IN_PROGRESS
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.RESOLVED.value},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["status"] == LaporanStatus.RESOLVED.value
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.RESOLVED
+
+    @pytest.mark.asyncio
+    async def test_owner_can_mark_found_claim_pending_as_resolved(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Hilang owner should be able to transition FOUND_CLAIM_PENDING → resolved."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.FOUND_CLAIM_PENDING
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.RESOLVED.value},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["status"] == LaporanStatus.RESOLVED.value
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.RESOLVED
+
+    @pytest.mark.asyncio
+    async def test_owner_can_cancel_found_claim_pending_back_to_active(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Hilang owner should be able to transition FOUND_CLAIM_PENDING → active (cancel)."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_lost_laporan(
+            db_session, owner, status=LaporanStatus.FOUND_CLAIM_PENDING
+        )
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.ACTIVE.value},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "success"
+        assert body["data"]["status"] == LaporanStatus.ACTIVE.value
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.ACTIVE
+
+    @pytest.mark.asyncio
     async def test_claim_pending_status_is_rejected_by_dto(
         self, client: AsyncClient, db_session: AsyncSession
     ):

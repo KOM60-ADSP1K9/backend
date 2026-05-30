@@ -128,6 +128,8 @@ class Laporan(ABC):
             self.mark_as_resolved()
         elif newStatus == LaporanStatus.SELF_RESOLVED:
             self.mark_as_self_resolved()
+        elif newStatus == LaporanStatus.CLOSED:
+            self.mark_as_closed()
         else:
             raise ValueError(f"Invalid target status: {newStatus}")
 
@@ -169,12 +171,14 @@ class Laporan(ABC):
 
     def mark_as_resolved(self) -> None:
         """Mark laporan as resolved (found goods back to the user, or lost goods is found)."""
-        if (
-            self.status != LaporanStatus.CLAIM_PENDING
-            and self.status != LaporanStatus.ACTIVE
-        ):
+        if self.status not in {
+            LaporanStatus.ACTIVE,
+            LaporanStatus.CLAIM_PENDING,
+            LaporanStatus.FOUND_CLAIM_PENDING,
+            LaporanStatus.IN_PROGRESS,
+        }:
             raise ValueError(
-                "Can only mark as resolved from active or claim pending status"
+                "Can only mark as resolved from active, claim pending, found claim pending, or in progress status"
             )
 
         self.status = LaporanStatus.RESOLVED
@@ -386,6 +390,8 @@ class LaporanHilang(Laporan):
             self.mark_as_resolved()
         elif newStatus == LaporanStatus.SELF_RESOLVED:
             self.mark_as_self_resolved()
+        elif newStatus == LaporanStatus.CLOSED:
+            self.mark_as_closed()
         else:
             raise ValueError(f"Invalid target status: {newStatus}")
 
