@@ -105,8 +105,10 @@ def get_create_found_inquiry_usecase(
 def get_update_inquiry_status_usecase(
     laporan_repository: ILaporanRepository = Depends(get_laporan_repository),
     inquiry_repository: IInquiryRepository = Depends(get_inquiry_repository),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> UpdateInquiryStatusUsecase:
     return UpdateInquiryStatusUsecase(
         laporan_repository=laporan_repository,
         inquiry_repository=inquiry_repository,
+        notification_service=notification_service,
     )

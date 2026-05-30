@@ -18,7 +18,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entity.laporan import LaporanStatus, LaporanTemuan
+from src.domain.entity.laporan import LaporanHilang, LaporanStatus, LaporanTemuan
 from src.domain.entity.user import User
 from src.infrastructure.repositories.laporan_repository import LaporanRepository
 from tests.e2e.helpers import (
@@ -64,9 +64,7 @@ def _claim_files() -> dict:
     }
 
 
-async def _create_claim_inquiry(
-    client: AsyncClient, inquirer: User, laporan_id
-) -> None:
+async def _create_claim_inquiry(client: AsyncClient, inquirer: User, laporan_id) -> str:
     resp = await client.post(
         "/inquiries/claim",
         headers=get_auth_header(inquirer),
@@ -74,6 +72,33 @@ async def _create_claim_inquiry(
         files=_claim_files(),
     )
     assert resp.status_code == 201
+    return resp.json()["data"]["id"]
+
+
+async def _seed_active_laporan_hilang(db: AsyncSession, owner_id) -> LaporanHilang:
+    laporan = LaporanHilang.New(
+        user_id=owner_id,
+        lost_at_date=date(2026, 4, 30),
+        status=LaporanStatus.ACTIVE,
+    )
+    saved = await LaporanRepository(db).save(laporan)
+    assert isinstance(saved, LaporanHilang)
+    return saved
+
+
+async def _create_found_inquiry(client: AsyncClient, inquirer: User, laporan_id) -> str:
+    resp = await client.post(
+        "/inquiries/found",
+        headers=get_auth_header(inquirer),
+        data={
+            "laporan_id": str(laporan_id),
+            "message_content": "Saya menemukan barang ini",
+            "finder_contact": "0812345678",
+        },
+        files={"photo": ("photo.jpg", b"fake-photo", "image/jpeg")},
+    )
+    assert resp.status_code == 201
+    return resp.json()["data"]["id"]
 
 
 class TestListNotifications:
@@ -233,3 +258,153 @@ class TestMarkNotificationRead:
     async def test_requires_authentication(self, client: AsyncClient):
         resp = await client.patch(f"/notifications/{uuid4()}/read")
         assert resp.status_code == 401
+
+
+class TestInquiryStatusChangeNotifications:
+    """Sender is notified when the laporan owner activates or rejects their inquiry."""
+
+    async def _setup_proposed_claim(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> tuple[User, User, str]:
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_active_laporan_temuan(db_session, owner.id)
+        inquiry_id = await _create_claim_inquiry(client, inquirer, laporan.id)
+        return owner, inquirer, inquiry_id
+
+    @pytest.mark.asyncio
+    async def test_sender_notified_when_inquiry_accepted(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner, inquirer, inquiry_id = await self._setup_proposed_claim(
+            client, db_session
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry_id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+        assert resp.status_code == 200
+
+        listing = await client.get("/notifications", headers=get_auth_header(inquirer))
+        notifications = listing.json()["data"]["notifications"]
+        accepted = [n for n in notifications if n["type"] == "inquiry_accepted"]
+        assert len(accepted) == 1
+        assert accepted[0]["recipient_user_id"] == str(inquirer.id)
+        assert accepted[0]["inquiry_id"] == inquiry_id
+        assert accepted[0]["is_read"] is False
+
+    @pytest.mark.asyncio
+    async def test_sender_notified_when_inquiry_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner, inquirer, inquiry_id = await self._setup_proposed_claim(
+            client, db_session
+        )
+
+        resp = await client.patch(
+            f"/inquiries/{inquiry_id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "rejected"},
+        )
+        assert resp.status_code == 200
+
+        listing = await client.get("/notifications", headers=get_auth_header(inquirer))
+        notifications = listing.json()["data"]["notifications"]
+        rejected = [n for n in notifications if n["type"] == "inquiry_rejected"]
+        assert len(rejected) == 1
+        assert rejected[0]["recipient_user_id"] == str(inquirer.id)
+        assert rejected[0]["inquiry_id"] == inquiry_id
+
+    @pytest.mark.asyncio
+    async def test_owner_not_notified_on_status_change(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner, inquirer, inquiry_id = await self._setup_proposed_claim(
+            client, db_session
+        )
+
+        await client.patch(
+            f"/inquiries/{inquiry_id}/status",
+            headers=get_auth_header(owner),
+            json={"status": "active"},
+        )
+
+        listing = await client.get("/notifications", headers=get_auth_header(owner))
+        notifications = listing.json()["data"]["notifications"]
+        # Owner only has the original inquiry_received notification; no status one.
+        assert all(
+            n["type"] not in ("inquiry_accepted", "inquiry_rejected")
+            for n in notifications
+        )
+
+    async def _resolve_and_get_sender_notification(
+        self, client, inquirer, owner, inquiry_id, status, notif_type
+    ) -> dict:
+        resp = await client.patch(
+            f"/inquiries/{inquiry_id}/status",
+            headers=get_auth_header(owner),
+            json={"status": status},
+        )
+        assert resp.status_code == 200
+        listing = await client.get("/notifications", headers=get_auth_header(inquirer))
+        matches = [
+            n
+            for n in listing.json()["data"]["notifications"]
+            if n["type"] == notif_type
+        ]
+        assert len(matches) == 1
+        return matches[0]
+
+    @pytest.mark.asyncio
+    async def test_claim_accepted_message_is_claim_specific(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner, inquirer, inquiry_id = await self._setup_proposed_claim(
+            client, db_session
+        )
+        notif = await self._resolve_and_get_sender_notification(
+            client, inquirer, owner, inquiry_id, "active", "inquiry_accepted"
+        )
+        assert notif["message"] == "Pemilik laporan menerima klaim Anda"
+
+    @pytest.mark.asyncio
+    async def test_claim_rejected_message_is_claim_specific(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner, inquirer, inquiry_id = await self._setup_proposed_claim(
+            client, db_session
+        )
+        notif = await self._resolve_and_get_sender_notification(
+            client, inquirer, owner, inquiry_id, "rejected", "inquiry_rejected"
+        )
+        assert notif["message"] == "Pemilik laporan menolak klaim Anda"
+
+    @pytest.mark.asyncio
+    async def test_found_accepted_message_is_found_specific(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_active_laporan_hilang(db_session, owner.id)
+        inquiry_id = await _create_found_inquiry(client, inquirer, laporan.id)
+
+        notif = await self._resolve_and_get_sender_notification(
+            client, inquirer, owner, inquiry_id, "active", "inquiry_accepted"
+        )
+        assert notif["message"] == "Pemilik laporan menerima bukti temuan barang"
+
+    @pytest.mark.asyncio
+    async def test_found_rejected_message_is_found_specific(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        owner = await seed_verified_mahasiswa(db_session)
+        inquirer = await seed_other_verified_mahasiswa(db_session)
+        laporan = await _seed_active_laporan_hilang(db_session, owner.id)
+        inquiry_id = await _create_found_inquiry(client, inquirer, laporan.id)
+
+        notif = await self._resolve_and_get_sender_notification(
+            client, inquirer, owner, inquiry_id, "rejected", "inquiry_rejected"
+        )
+        assert notif["message"] == "Pemilik laporan menolak bukti temuan barang"

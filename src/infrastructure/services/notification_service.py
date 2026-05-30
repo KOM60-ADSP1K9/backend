@@ -9,7 +9,7 @@ import logging
 from uuid import UUID
 
 from src.domain.entity.i_notification_repository import INotificationRepository
-from src.domain.entity.inquiry import InquiryType
+from src.domain.entity.inquiry import InquiryStatus, InquiryType
 from src.domain.entity.notification import Notification, NotificationType
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,36 @@ _INQUIRY_COPY: dict[InquiryType, dict[str, str]] = {
         "sender_title": "Laporan temuan Anda terkirim",
         "sender_message": "Laporan temuan Anda telah berhasil dikirim.",
     },
+}
+
+# Per-resolution wording for the inquiry sender when the owner acts, keyed by
+# inquiry type then status.
+_STATUS_COPY: dict[InquiryType, dict[InquiryStatus, dict[str, str]]] = {
+    InquiryType.CLAIM: {
+        InquiryStatus.ACTIVE: {
+            "title": "Klaim Anda diterima",
+            "message": "Pemilik laporan menerima klaim Anda",
+        },
+        InquiryStatus.REJECTED: {
+            "title": "Klaim Anda ditolak",
+            "message": "Pemilik laporan menolak klaim Anda",
+        },
+    },
+    InquiryType.FOUND: {
+        InquiryStatus.ACTIVE: {
+            "title": "Klaim temuan Anda diterima",
+            "message": "Pemilik laporan menerima bukti temuan barang",
+        },
+        InquiryStatus.REJECTED: {
+            "title": "Klaim temuan Anda ditolak",
+            "message": "Pemilik laporan menolak bukti temuan barang",
+        },
+    },
+}
+
+_STATUS_TYPE: dict[InquiryStatus, NotificationType] = {
+    InquiryStatus.ACTIVE: NotificationType.INQUIRY_ACCEPTED,
+    InquiryStatus.REJECTED: NotificationType.INQUIRY_REJECTED,
 }
 
 
@@ -80,4 +110,35 @@ class NotificationService:
                 "Failed to create %s inquiry notifications for laporan %s",
                 inquiry_type.value,
                 laporan_id,
+            )
+
+    async def notify_inquiry_status_changed(
+        self,
+        *,
+        sender_id: UUID,
+        laporan_id: UUID,
+        inquiry_id: UUID,
+        inquiry_type: InquiryType,
+        new_status: InquiryStatus,
+    ) -> None:
+        """Notify the inquiry sender when the owner accepts/rejects their inquiry."""
+        copy = _STATUS_COPY.get(inquiry_type, {}).get(new_status)
+        notification_type = _STATUS_TYPE.get(new_status)
+        if copy is None or notification_type is None:
+            return
+        try:
+            await self._notification_repository.save(
+                Notification.New(
+                    recipient_user_id=sender_id,
+                    type=notification_type,
+                    title=copy["title"],
+                    message=copy["message"],
+                    laporan_id=laporan_id,
+                    inquiry_id=inquiry_id,
+                )
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create inquiry status notification for inquiry %s",
+                inquiry_id,
             )

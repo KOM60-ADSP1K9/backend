@@ -12,6 +12,8 @@ class NotificationType(str, enum.Enum):
 
     INQUIRY_RECEIVED = "inquiry_received"
     INQUIRY_SUBMITTED = "inquiry_submitted"
+    INQUIRY_ACCEPTED = "inquiry_accepted"
+    INQUIRY_REJECTED = "inquiry_rejected"
 
 
 @dataclass

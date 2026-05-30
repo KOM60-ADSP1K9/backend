@@ -10,6 +10,7 @@ from src.core.exceptions import (
 from src.domain.entity.i_inquiry_repository import IInquiryRepository
 from src.domain.entity.i_laporan_repository import ILaporanRepository
 from src.domain.entity.inquiry import Inquiry, InquiryStatus
+from src.infrastructure.services.notification_service import NotificationService
 
 
 class UpdateInquiryStatusRequest:
@@ -36,9 +37,11 @@ class UpdateInquiryStatusUsecase:
         self,
         laporan_repository: ILaporanRepository,
         inquiry_repository: IInquiryRepository,
+        notification_service: NotificationService,
     ) -> None:
         self._laporan_repository = laporan_repository
         self._inquiry_repository = inquiry_repository
+        self._notification_service = notification_service
 
     async def execute(
         self, request: UpdateInquiryStatusRequest
@@ -81,4 +84,13 @@ class UpdateInquiryStatusUsecase:
             (i for i in saved_laporan.inquiries if i.id == request.inquiry_id),
             target_inquiry,
         )
+
+        await self._notification_service.notify_inquiry_status_changed(
+            sender_id=saved_inquiry.sender_user_id,
+            laporan_id=saved_laporan.id,
+            inquiry_id=saved_inquiry.id,
+            inquiry_type=saved_inquiry.type,
+            new_status=request.target_status,
+        )
+
         return UpdateInquiryStatusResult(inquiry=saved_inquiry)

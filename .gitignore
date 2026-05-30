@@ -16,3 +16,5 @@ wheels/
 .env
 .env.test
 !.env.example
+
+docs/
