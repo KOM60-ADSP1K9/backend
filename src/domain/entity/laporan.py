@@ -488,6 +488,25 @@ class LaporanTemuan(Laporan):
         self.found_at_location_id = found_at_location_id
         self.found_at_date = found_at_date
 
+    def resolve_status_update(self, newStatus: LaporanStatus) -> None:
+        """Transition laporan status and call the appropriate mark_as_* method."""
+        if newStatus == LaporanStatus.ACTIVE:
+            self.mark_as_active()
+        elif newStatus == LaporanStatus.CLAIM_PENDING:
+            self.mark_as_claim_pending()
+        elif newStatus == LaporanStatus.FOUND_CLAIM_PENDING:
+            raise ValueError("Cannot mark found-item laporan as found claim pending")
+        elif newStatus == LaporanStatus.IN_PROGRESS:
+            self.mark_as_in_progress()
+        elif newStatus == LaporanStatus.RESOLVED:
+            self.mark_as_resolved()
+        elif newStatus == LaporanStatus.SELF_RESOLVED:
+            raise ValueError("Cannot mark found-item laporan as self resolved")
+        elif newStatus == LaporanStatus.CLOSED:
+            self.mark_as_closed()
+        else:
+            raise ValueError(f"Invalid target status: {newStatus}")
+
     def _assert_inquiry_type_allowed(self, inquiry: Inquiry) -> None:
         if not isinstance(inquiry, ClaimInquiry):
             raise ValueError("LaporanTemuan can only accept ClaimInquiry")
