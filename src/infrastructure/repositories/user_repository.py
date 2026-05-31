@@ -25,21 +25,21 @@ class UserRepository(IUserRepository):
     async def save(self, entity: User) -> User:
         row = UserTable.from_domain(entity)
         self.db.add(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(row)
         return row.to_user()
 
     async def update(self, entity: User) -> User:
         row = UserTable.from_domain(entity)
         merged = await self.db.merge(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(merged)
         return merged.to_user()
 
     async def saveAll(self, entities: Iterable[User]) -> Iterable[User]:
         rows = [UserTable.from_domain(entity) for entity in entities]
         self.db.add_all(rows)
-        await self.db.commit()
+        await self.db.flush()
         for row in rows:
             await self.db.refresh(row)
         return [row.to_user() for row in rows]
@@ -76,7 +76,7 @@ class UserRepository(IUserRepository):
 
     async def deleteById(self, id: UUID) -> None:
         await self.db.execute(delete(UserTable).where(UserTable.id == id))
-        await self.db.commit()
+        await self.db.flush()
 
     async def delete(self, entity: User) -> None:
         await self.deleteById(entity.id)
@@ -86,12 +86,12 @@ class UserRepository(IUserRepository):
         if not ids_list:
             return
         await self.db.execute(delete(UserTable).where(UserTable.id.in_(ids_list)))
-        await self.db.commit()
+        await self.db.flush()
 
     async def deleteAll(self, entities: Iterable[User] | None = None) -> None:
         if entities is None:
             await self.db.execute(delete(UserTable))
-            await self.db.commit()
+            await self.db.flush()
             return
 
         entity_ids = [entity.id for entity in entities]

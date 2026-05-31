@@ -28,21 +28,21 @@ class StaffRepository(i_staff_repository.IStaffRepository):
     async def save(self, entity: Staff) -> Staff:
         row = UserTable.from_domain(entity)
         self.db.add(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(row)
         return row.to_staff()
 
     async def update(self, entity: Staff) -> Staff:
         row = UserTable.from_domain(entity)
         merged = await self.db.merge(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(merged)
         return merged.to_staff()
 
     async def saveAll(self, entities: Iterable[Staff]) -> Iterable[Staff]:
         rows = [UserTable.from_domain(entity) for entity in entities]
         self.db.add_all(rows)
-        await self.db.commit()
+        await self.db.flush()
         for row in rows:
             await self.db.refresh(row)
         return [row.to_staff() for row in rows]
@@ -104,7 +104,7 @@ class StaffRepository(i_staff_repository.IStaffRepository):
                 UserTable.role == UserRole.STAFF,
             )
         )
-        await self.db.commit()
+        await self.db.flush()
 
     async def delete(self, entity: Staff) -> None:
         await self.deleteById(entity.id)
@@ -120,14 +120,14 @@ class StaffRepository(i_staff_repository.IStaffRepository):
                 UserTable.role == UserRole.STAFF,
             )
         )
-        await self.db.commit()
+        await self.db.flush()
 
     async def deleteAll(self, entities: Iterable[Staff] | None = None) -> None:
         if entities is None:
             await self.db.execute(
                 delete(UserTable).where(UserTable.role == UserRole.STAFF)
             )
-            await self.db.commit()
+            await self.db.flush()
             return
 
         entity_ids = [entity.id for entity in entities]

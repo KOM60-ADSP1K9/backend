@@ -13,6 +13,15 @@ class Base(DeclarativeBase):
 
 
 async def get_async_db_session():
-    """Get an asynchronous database session."""
+    """Get an asynchronous database session.
+
+    Commits once at the end of the request (Unit of Work). Any exception
+    rolls back the whole transaction so a request never leaves partial state.
+    """
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

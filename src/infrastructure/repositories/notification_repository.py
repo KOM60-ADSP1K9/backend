@@ -16,21 +16,21 @@ class NotificationRepository(INotificationRepository):
     async def save(self, entity: Notification) -> Notification:
         row = NotificationTable.from_domain(entity)
         self.db.add(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(row)
         return row.to_domain()
 
     async def update(self, entity: Notification) -> Notification:
         row = NotificationTable.from_domain(entity)
         merged = await self.db.merge(row)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(merged)
         return merged.to_domain()
 
     async def saveAll(self, entities: Iterable[Notification]) -> Iterable[Notification]:
         rows = [NotificationTable.from_domain(entity) for entity in entities]
         self.db.add_all(rows)
-        await self.db.commit()
+        await self.db.flush()
         for row in rows:
             await self.db.refresh(row)
         return [row.to_domain() for row in rows]
@@ -109,7 +109,7 @@ class NotificationRepository(INotificationRepository):
         await self.db.execute(
             delete(NotificationTable).where(NotificationTable.id == id)
         )
-        await self.db.commit()
+        await self.db.flush()
 
     async def delete(self, entity: Notification) -> None:
         await self.deleteById(entity.id)
@@ -122,12 +122,12 @@ class NotificationRepository(INotificationRepository):
         await self.db.execute(
             delete(NotificationTable).where(NotificationTable.id.in_(ids_list))
         )
-        await self.db.commit()
+        await self.db.flush()
 
     async def deleteAll(self, entities: Iterable[Notification] | None = None) -> None:
         if entities is None:
             await self.db.execute(delete(NotificationTable))
-            await self.db.commit()
+            await self.db.flush()
             return
 
         entity_ids = [entity.id for entity in entities]
