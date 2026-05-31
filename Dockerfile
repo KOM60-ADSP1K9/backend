@@ -13,10 +13,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 COPY ./pyproject.toml ./uv.lock ./.python-version /app/
 
-RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-  --mount=type=bind,source=uv.lock,target=uv.lock \
-  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY ./src /app/src
 # for seeding
@@ -25,8 +22,7 @@ COPY ./seed.py /app/seed.py
 COPY ./alembic /app/alembic
 COPY ./alembic.ini /app/alembic.ini
 
-RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-  uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 
 # Create non-root user and transfer ownership
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser \
@@ -34,4 +30,4 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser \
 
 USER appuser
 
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-9000} --reload"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-9000}"]
