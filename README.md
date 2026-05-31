@@ -1,252 +1,275 @@
-# FastAPI VSA-DDD Template (WORK IN PROGRESS)
+# Sistem Lost & Found IPB — Backend
 
-A FastAPI template implementing Vertical Slice Architecture (VSA) and Domain-Driven Design (DDD) approach with async PostgreSQL support. Purposely for System Analysis and Design courses (KOM1337) so it may need some changes for another use.
+REST API untuk sistem pelaporan kehilangan dan penemuan barang di lingkungan IPB University, dibangun dengan **FastAPI** menggunakan pendekatan **Vertical Slice Architecture (VSA)** dan **Domain-Driven Design (DDD)**.
 
-check out my other template : [Nest TS Starter Kit](https://github.com/AghnatHs/nest-core-kit)
+---
 
-!! Not fully implementing DDD
+**Mata Kuliah:** KOM 1337 Analisis dan Desain Sistem
 
-### Project Structure
+**Kelompok 9 - P1**
+
+| No | Nama | NIM |
+|----|------|-----|
+| 1 | Faqih Firman Pratama | G6401231063 |
+| 2 | Aghnat Hasya Sayyidina | G6401231074 |
+| 3 | Anargya Isadhi Maheswara | G6401231118 |
+
+---
+
+## Tech Stack
+
+- **Framework:** FastAPI
+- **Language:** Python 3.13+
+- **Database:** PostgreSQL 17+ (async via SQLAlchemy + asyncpg)
+- **Migrations:** Alembic
+- **Auth:** JWT + email verification (itsdangerous)
+- **Email:** SMTP via fastapi-mail
+- **Storage:** Cloudflare R2 (aioboto3) / stub mode
+- **Rate Limiting:** pyrate-limiter
+- **Code Quality:** Ruff, Black, pre-commit
+- **Testing:** pytest + pytest-asyncio
+- **Containerization:** Docker + Docker Compose
+
+## Arsitektur
+
+Proyek ini menggunakan **Vertical Slice Architecture** di mana setiap fitur memiliki folder tersendiri yang mencakup controller, dependencies, dan usecase-nya masing-masing, dikombinasikan dengan prinsip **Domain-Driven Design** pada layer domain.
 
 ```
-├── src/
-│   ├── app.py                 # FastAPI application entry point
-│   ├── core/                  # Core infrastructure
-│   │   ├── config.py          # Application configuration
-│   │   └── db.py              # Database setup and session management
-│   ├── domain/                # Domain models (business entities)
-│   │   └── user.py            # User domain model
-│   ├── features/              # Feature slices (VSA)
-│   └── infrastructure/        # Infrastructure layer
-│       └── tables/            # SQLAlchemy table mappings
-│           ├── user_table.py  # User table ORM
-│           └── __init__.py
-├── alembic/                   # Database migrations
-│   ├── env.py                 # Alembic environment config
-│   └── versions/              # Migration scripts
-├── main.py                    # Application entry point
-├── pyproject.toml             # Project dependencies
-├── requirements.txt           # Pip dependencies
-└── alembic.ini               # Alembic configuration
+src/
+├── app.py                          # FastAPI app entry point
+├── core/                           # Infrastruktur inti
+│   ├── auth.py                     # JWT auth dependency
+│   ├── config.py                   # Konfigurasi env
+│   ├── db.py                       # Database session
+│   ├── db_seeder.py                # Seeder utility
+│   ├── error_handler.py            # Global error handler
+│   ├── exceptions.py               # Custom HTTP exceptions
+│   ├── http.py                     # Response wrapper
+│   └── rate_limiter.py             # Rate limit helper
+├── application/                    # Interface/port layer
+│   ├── i_email_service.py
+│   ├── i_password_service.py
+│   ├── i_storage_service.py
+│   └── i_token_service.py
+├── domain/                         # Domain entities & repository interfaces
+│   └── entity/
+│       ├── user.py                 # User, Mahasiswa, Staff
+│       ├── laporan.py              # LaporanHilang, LaporanTemuan, status lifecycle
+│       ├── inquiry.py              # ClaimInquiry, FoundInquiry
+│       ├── barang.py               # Barang
+│       ├── notification.py         # Notification
+│       ├── lokasi.py               # Lokasi
+│       ├── kategori_barang.py      # KategoriBarang
+│       └── fakultas.py             # Daftar Fakultas & Departemen IPB
+├── features/                       # Vertical slices per fitur
+│   ├── auth/                       # Registrasi, login, verifikasi email, profil
+│   ├── lost_report/                # Buat laporan kehilangan
+│   ├── found_report/               # Buat laporan penemuan
+│   ├── report/                     # Detail, edit, hapus, update status laporan
+│   ├── inquiry/                    # Klaim & temuan inquiry
+│   ├── homepage/                   # Daftar semua laporan & laporan milik user
+│   ├── notification/               # Notifikasi user
+│   ├── user/                       # Daftar user (staff only)
+│   ├── lokasi/                     # Daftar lokasi
+│   └── kategori_barang/            # Daftar kategori barang
+└── infrastructure/                 # Implementasi konkret
+    ├── repositories/               # SQLAlchemy repository implementations
+    ├── services/                   # Email, JWT, bcrypt, storage
+    └── tables/                     # SQLAlchemy ORM table mappings
 ```
 
-## Features
+## API Endpoints
 
-- **Database Migrations**: Alembic integration for schema versioning
-- **Domain Models**: Rich domain models with business logic
-- **Vertical Slice**: Separate by business language / domain
-- **Environment Config**: `.env` based configuration
-- **Code Quality**: Pre-commit hooks with Black and Ruff
-- **Type Safety**: Full type hints support
+| Method | Path | Deskripsi | Auth |
+|--------|------|-----------|------|
+| `POST` | `/auth/register` | Registrasi mahasiswa baru | — |
+| `POST` | `/auth/login` | Login (email + password) | — |
+| `GET` | `/auth/verify-email?token=` | Verifikasi email, redirect ke frontend | — |
+| `GET` | `/auth/me` | Profil user yang sedang login | JWT |
+| `GET` | `/auth/fakultas` | Daftar fakultas | — |
+| `GET` | `/auth/fakultas/departemen?fakultas=` | Daftar departemen | — |
+| `POST` | `/lost-reports` | Buat laporan kehilangan | JWT |
+| `POST` | `/found-reports` | Buat laporan penemuan | JWT |
+| `GET` | `/reports` | Daftar semua laporan | JWT |
+| `GET` | `/reports/my` | Laporan milik user sendiri | JWT |
+| `GET` | `/reports/:id` | Detail laporan | JWT |
+| `PUT` | `/reports/:id` | Edit detail laporan | JWT |
+| `PATCH` | `/reports/:id/status` | Update status laporan | JWT |
+| `DELETE` | `/reports/:id` | Hapus laporan | JWT |
+| `POST` | `/reports/:id/inquiries/claim` | Ajukan klaim | JWT |
+| `POST` | `/reports/:id/inquiries/found` | Ajukan temuan | JWT |
+| `PATCH` | `/inquiries/:id/status` | Update status inquiry | JWT |
+| `GET` | `/notifications` | Daftar notifikasi | JWT |
+| `PATCH` | `/notifications/:id/read` | Tandai notifikasi sebagai dibaca | JWT |
+| `GET` | `/users` | Daftar semua user (staff) | JWT |
+| `GET` | `/lokasi` | Daftar lokasi | JWT |
+| `GET` | `/kategori-barang` | Daftar kategori barang | JWT |
 
-## 📋 Prerequisites
+## Prerequisites
 
-- Python 3.13.11+
+- Python 3.13+
 - PostgreSQL 17+
-- Docker 24+
-- Docker Compose v2+
+- Docker 24+ & Docker Compose v2+ (opsional)
 - Git
 
-## 🛠️ Installation
+## Instalasi
 
-1. **Clone the repository**
+1. **Clone repository**
 
    ```bash
    git clone <repository-url>
-   cd fastapi-vsa-ddd
+   cd backend
    ```
 
-2. **Venv and its dependencies**
+2. **Setup virtual environment dan dependensi**
 
    ```bash
    uv venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
    uv sync
+   ```
 
+   Atau dengan pip:
+
+   ```bash
    python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**
+3. **Setup environment variables**
 
    ```bash
    cp .env.example .env
-   # Edit .env with your credentials
+   # Edit .env sesuai konfigurasi lokal
 
    cp .env.example .env.test
-   # Edit .env.test with your for test environment credentials
+   # Edit .env.test untuk environment testing
    ```
 
 4. **Install pre-commit hooks**
+
    ```bash
    pre-commit install
    ```
 
-## Configuration
+## Konfigurasi
 
-Edit `.env` file with your settings:
+Edit file `.env`:
 
 ```env
-# App Configuration
+# App
 APP_ENV=development
 PORT=9000
 BASE_URL=http://localhost:9000
+FRONTEND_BASE_URL=http://localhost:5173
 
-# Database Configuration (PostgreSQL)
+# Database (PostgreSQL)
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=your_db_name
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 
-# Authentication (JWT)
-# Generate secret key using `openssl rand -hex 32`
+# JWT
+# Generate: openssl rand -hex 32
 JWT_SECRET_KEY=your_super_secret_key_here
 JWT_EXPIRES_MINUTES=1440
 VERIFICATION_SECRET_KEY=your_verification_secret_key_here
 EMAIL_SALT=your_email_salt
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:9000/auth/google/callback
-
-# Email Service (Mailtrap/SMTP)
+# Email (SMTP / Mailtrap untuk development)
 SMTP_HOST=sandbox.smtp.mailtrap.io
 SMTP_PORT=587
 SMTP_USER=your_mailtrap_user
 SMTP_PASSWORD=your_mailtrap_password
 SMTP_FROM=noreply@apps.ipb.ac.id
 
+# Cloudflare R2 (file storage)
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
+R2_PUBLIC_URL=
+
+# stub = tidak upload file sungguhan (development)
+FACTORY_STORAGE_TYPE=stub
 ```
 
-Configuration is managed in [`src/core/config.py`](src/core/config.py).
+## Database
 
-## Database Setup
-
-2. **Run migrations**
-
-   ```bash
-   alembic upgrade head
-   ```
-
-3. **Create new migration** (after model changes)
-   ```bash
-   alembic revision --autogenerate -m "description"
-   alembic upgrade head
-   ```
-
-## Database Seeding (DEVELOPMENT ONLY)
-
-Seeder utilities are available for three operations:
-
-- `seed`: insert seed data without clearing existing rows
-- `reseed`: truncate first, then insert fresh seed data
-- `truncate`: remove all rows from the target table
-
-for best practice, use `reseed` to ensure a clean state before seeding new data.
-
-Use seeder
-
-```bash
-python seed.py seed
-python seed.py reseed
-python seed.py truncate
-```
-
-Docker seeder usage:
-
-```bash
-docker compose exec app python /app/seed.py seed
-docker compose exec app python /app/seed.py reseed
-docker compose exec app python /app/seed.py truncate
-```
-
-One-off seeding without starting the app service first:
-
-```bash
-docker compose run --rm app python /app/seed.py reseed
-```
-
-## Running the Application
-
-### Development mode (auto reload)\*\*:
-
-```bash
-python main.py
-```
-
-### Production mode\*\*:
-
-```bash
-uvicorn src.app:app --host 0.0.0.0 --port 9000
-```
-
-### Docker Compose
-
-#### 1. Prepare environment
-
-```bash
-cp .env.example .env
-```
-
-Set .env correctly
-
-`docker-compose.yaml` will use these values for both app and PostgreSQL.
-
-#### 2. Build and run
-
-```bash
-docker compose up -d --build
-```
-
-The app and database run in one network
-
-- `http://localhost:${PORT}`
-
-#### 3. Watch mode in development (live update)
-
-```bash
-docker compose up --watch --build
-```
-
-watch behavior:
-
-- sync `./src` to `/app/src`
-- rebuild on `pyproject.toml`, `uv.lock`, and `Dockerfile` changes
-
-#### 4. Migrations in Docker
-
-Migrations are automatically executed on app startup:
+**Jalankan migrasi:**
 
 ```bash
 alembic upgrade head
 ```
 
-or, run them manually:
+**Buat migrasi baru** (setelah perubahan model):
+
+```bash
+alembic revision --autogenerate -m "deskripsi perubahan"
+alembic upgrade head
+```
+
+## Database Seeding (Development)
+
+```bash
+python seed.py seed       # Insert data tanpa menghapus data lama
+python seed.py reseed     # Truncate lalu insert ulang (direkomendasikan)
+python seed.py truncate   # Hapus semua data
+```
+
+Via Docker:
+
+```bash
+docker compose exec app python /app/seed.py reseed
+```
+
+## Menjalankan Aplikasi
+
+**Development (auto-reload):**
+
+```bash
+python main.py
+```
+
+**Production:**
+
+```bash
+uvicorn src.app:app --host 0.0.0.0 --port 9000
+```
+
+## Docker
+
+**Build dan jalankan:**
+
+```bash
+docker compose up -d --build
+```
+
+**Development watch mode (live reload):**
+
+```bash
+docker compose up --watch --build
+```
+
+Migrasi dijalankan otomatis saat startup. Untuk menjalankan manual:
 
 ```bash
 docker compose exec app alembic upgrade head
 ```
 
-The API will be available at `http://localhost:9000`
-
-## Code Style
-
-- **Black**: Code formatting
-- **Ruff**: Fast Python linter
-- **Pre-commit**: Automated code quality checks
-
-Run manually:
-
-```bash
-black .
-ruff check --fix
-```
+Aplikasi tersedia di `http://localhost:9000`
 
 ## Testing
 
 ```bash
 pytest tests/ -v
+```
+
+## Code Quality
+
+```bash
+ruff check --fix .
+black .
 ```
