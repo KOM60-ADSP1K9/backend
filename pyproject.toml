@@ -16,6 +16,7 @@ dependencies = [
     "fastapi-mail>=1.4.2",
     "fastapi-users[sqlalchemy]>=15.0.4",
     "itsdangerous>=2.2.0",
+    "mailtrap>=2.6.0",
     "pre-commit>=4.5.1",
     "psycopg2-binary>=2.9.11",
     "pyjwt>=2.11.0",

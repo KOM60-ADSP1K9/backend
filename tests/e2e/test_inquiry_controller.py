@@ -82,7 +82,7 @@ def _found_files() -> dict:
 def _mock_inquiry_notification_email():
     """Avoid hitting real SMTP when creating inquiries in e2e tests."""
     with patch(
-        "src.infrastructure.services.smtp_email_service.SmtpEmailService.send_inquiry_notification",
+        "src.infrastructure.services.mailtrap_email_service.MailtrapEmailService.send_inquiry_notification",
         new_callable=AsyncMock,
     ) as mock:
         yield mock

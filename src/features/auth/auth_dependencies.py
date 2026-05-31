@@ -12,7 +12,7 @@ from src.features.auth.usecase.verify_email_usecase import VerifyEmailUsecase
 from src.infrastructure.repositories.user_repository import UserRepository
 from src.infrastructure.services.bcrypt_password_service import BcryptPasswordService
 from src.infrastructure.services.jwt_token_service import JWTTokenService
-from src.infrastructure.services.smtp_email_service import SmtpEmailService
+from src.infrastructure.services.mailtrap_email_service import MailtrapEmailService
 
 
 def get_user_repository(
@@ -35,15 +35,15 @@ def get_token_service() -> JWTTokenService:
     return JWTTokenService()
 
 
-def get_email_service() -> SmtpEmailService:
-    return SmtpEmailService()
+def get_email_service() -> MailtrapEmailService:
+    return MailtrapEmailService()
 
 
 def get_register_usecase(
     mhs_repository: MahasiswaRepository = Depends(get_mhs_repository),
     password_service: BcryptPasswordService = Depends(get_password_service),
     token_service: JWTTokenService = Depends(get_token_service),
-    email_service: SmtpEmailService = Depends(get_email_service),
+    email_service: MailtrapEmailService = Depends(get_email_service),
 ) -> RegisterUsecase:
     return RegisterUsecase(
         mhs_repository=mhs_repository,

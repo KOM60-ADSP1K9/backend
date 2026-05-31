@@ -1,41 +1,42 @@
 """
-SMTP email service implementation (fastapi-mail).
+Mailtrap email service implementation (mailtrap SDK, sending API).
 """
 
+import asyncio
 import logging
 from uuid import UUID
 
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-from pydantic import SecretStr
+import mailtrap as mt
 
 from src.core.config import settings
 from src.application.i_email_service import IEmailService
 from src.domain.entity.inquiry import InquiryType
-from src.infrastructure.services.email_templates import render_email as _render_email
+from src.infrastructure.services.email_templates import APP_NAME, render_email
 
 logger = logging.getLogger(__name__)
 
 
-_mail_conf = ConnectionConfig(
-    MAIL_USERNAME=settings.SMTP_USER,
-    MAIL_PASSWORD=SecretStr(settings.SMTP_PASSWORD),
-    MAIL_SERVER=settings.SMTP_HOST,
-    MAIL_PORT=settings.SMTP_PORT,
-    MAIL_FROM=settings.SMTP_FROM,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=False,
-)
+class MailtrapEmailService(IEmailService):
+    """Send transactional emails via the Mailtrap sending API."""
 
+    def __init__(self) -> None:
+        self._client = mt.MailtrapClient(token=settings.MAILTRAP_API_KEY)
+        self._sender = mt.Address(email=settings.SMTP_FROM, name=APP_NAME)
 
-class SmtpEmailService(IEmailService):
-    """Send transactional emails via SMTP using fastapi-mail."""
+    async def _send(self, *, to_email: str, subject: str, html_body: str) -> None:
+        mail = mt.Mail(
+            sender=self._sender,
+            to=[mt.Address(email=to_email)],
+            subject=subject,
+            html=html_body,
+        )
+        # mailtrap SDK is synchronous; run off the event loop.
+        await asyncio.to_thread(self._client.send, mail)
 
     async def send_verification_email(self, to_email: str, token: str) -> None:
         verify_url = f"{settings.BASE_URL}/auth/verify-email?token={token}"
 
-        html_body = _render_email(
+        html_body = render_email(
             eyebrow="Verifikasi Akun",
             heading="Verifikasi alamat email Anda",
             paragraphs=[
@@ -46,15 +47,11 @@ class SmtpEmailService(IEmailService):
             footnote="Link ini akan kedaluwarsa dalam 10 menit. Abaikan email ini jika Anda tidak membuat akun.",
         )
 
-        message = MessageSchema(
+        await self._send(
+            to_email=to_email,
             subject="Verify Alamat Email Anda",
-            recipients=[to_email],
-            body=html_body,
-            subtype=MessageType.html,
+            html_body=html_body,
         )
-
-        fm = FastMail(_mail_conf)
-        await fm.send_message(message)
 
     async def send_inquiry_notification(
         self,
@@ -66,7 +63,7 @@ class SmtpEmailService(IEmailService):
 
         if inquiry_type == InquiryType.CLAIM:
             subject = "Klaim Baru untuk Laporan Temuan Anda"
-            html_body = _render_email(
+            html_body = render_email(
                 eyebrow="Klaim Baru",
                 heading="Klaim baru untuk laporan temuan Anda",
                 paragraphs=[
@@ -78,7 +75,7 @@ class SmtpEmailService(IEmailService):
             )
         else:
             subject = "Laporan Hilang Anda Telah Ditemukan"
-            html_body = _render_email(
+            html_body = render_email(
                 eyebrow="Barang Ditemukan",
                 heading="Laporan hilang Anda telah ditemukan",
                 paragraphs=[
@@ -89,12 +86,4 @@ class SmtpEmailService(IEmailService):
                 cta_url=laporan_url,
             )
 
-        message = MessageSchema(
-            subject=subject,
-            recipients=[to_email],
-            body=html_body,
-            subtype=MessageType.html,
-        )
-
-        fm = FastMail(_mail_conf)
-        await fm.send_message(message)
+        await self._send(to_email=to_email, subject=subject, html_body=html_body)

@@ -26,7 +26,7 @@ from src.infrastructure.repositories.notification_repository import (
 )
 from src.infrastructure.repositories.user_repository import UserRepository
 from src.infrastructure.services.notification_service import NotificationService
-from src.infrastructure.services.smtp_email_service import SmtpEmailService
+from src.infrastructure.services.mailtrap_email_service import MailtrapEmailService
 from src.infrastructure.services.storage_service_factory import create_storage_service
 
 
@@ -67,7 +67,7 @@ def get_user_repository(
 
 
 def get_email_service() -> IEmailService:
-    return SmtpEmailService()
+    return MailtrapEmailService()
 
 
 def get_create_claim_inquiry_usecase(

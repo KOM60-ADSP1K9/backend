@@ -40,7 +40,7 @@ class TestRegister:
 
     @pytest.mark.asyncio
     @patch(
-        "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
+        "src.features.auth.auth_dependencies.MailtrapEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
     async def test_should_register_successfully(
@@ -70,7 +70,7 @@ class TestRegister:
 
     @pytest.mark.asyncio
     @patch(
-        "src.features.auth.auth_dependencies.SmtpEmailService.send_verification_email",
+        "src.features.auth.auth_dependencies.MailtrapEmailService.send_verification_email",
         new_callable=AsyncMock,
     )
     async def test_should_not_register_with_duplicate_email(

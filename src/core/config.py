@@ -38,6 +38,7 @@ class Settings:
         self.SMTP_USER = os.getenv("SMTP_USER", "")
         self.SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
         self.SMTP_FROM = os.getenv("SMTP_FROM", "noreply@apps.ipb.ac.id")
+        self.MAILTRAP_API_KEY = os.getenv("MAILTRAP_API_KEY", "")
         self.VERIFICATION_SECRET_KEY = os.getenv(
             "VERIFICATION_SECRET_KEY", self.JWT_SECRET_KEY
         )
