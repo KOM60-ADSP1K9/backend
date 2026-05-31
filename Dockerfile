@@ -25,7 +25,7 @@ COPY ./seed.py /app/seed.py
 COPY ./alembic /app/alembic
 COPY ./alembic.ini /app/alembic.ini
 
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
 # Create non-root user and transfer ownership
