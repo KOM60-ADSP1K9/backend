@@ -30,4 +30,4 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser \
 
 USER appuser
 
-CMD ["sh", "-c", "alembic upgrade head && python seed.py reseed && exec uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-9000}"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-9000}"]
