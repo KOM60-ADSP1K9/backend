@@ -10,13 +10,16 @@ GET  /auth/me           – Current user profile (protected)
 """
 
 from datetime import datetime
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, EmailStr
 from pyrate_limiter import Duration
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import settings
 from src.core.db import get_async_db_session
 from src.features.auth.auth_dependencies import (
     get_login_usecase,
@@ -26,7 +29,7 @@ from src.features.auth.auth_dependencies import (
 )
 from src.core.auth import get_current_user
 from src.core.exceptions import NotFoundException
-from src.core.http import HTTPDataResponse, HTTPMessageResponse
+from src.core.http import HTTPDataResponse
 from src.core.rate_limiter import rate_limit_dependency
 from src.domain.entity.fakultas import list_departemen, list_fakultas
 from src.domain.entity.lokasi import Lokasi
@@ -167,19 +170,28 @@ async def login(
 
 @auth_router.get(
     "/verify-email",
-    response_model=HTTPMessageResponse,
     dependencies=rate_limit_dependency(5, Duration.MINUTE * 1),
 )
 async def verify_email(
     token: str = Query(..., description="Email verification token"),
     usecase: VerifyEmailUsecase = Depends(get_verify_email_usecase),
-) -> HTTPMessageResponse:
-    """Verify a user's email address via the token sent in the email."""
-    await usecase.execute(token)
-    return HTTPMessageResponse(
-        status="success",
-        message="Verifikasi email berhasil",
-    )
+) -> RedirectResponse:
+    """Verify a user's email address via the token sent in the email, then redirect to frontend."""
+    try:
+        await usecase.execute(token)
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_BASE_URL}/auth/verify-email?status=success",
+            status_code=302,
+        )
+    except Exception as exc:
+        message = getattr(
+            exc, "detail", "Verifikasi gagal. Token mungkin sudah kedaluwarsa."
+        )
+        params = urlencode({"status": "error", "message": message})
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_BASE_URL}/auth/verify-email?{params}",
+            status_code=302,
+        )
 
 
 @auth_router.get(
