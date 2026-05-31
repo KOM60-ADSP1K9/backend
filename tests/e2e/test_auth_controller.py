@@ -255,28 +255,24 @@ class TestVerifyEmail:
 
         resp = await client.get(f"/auth/verify-email?token={token}")
 
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["status"] == "success"
-        assert (
-            "berhasil" in body["message"].lower()
-            or "success" in body["message"].lower()
-        )
+        assert resp.status_code == 302
+        assert "status=success" in resp.headers["location"]
 
     @pytest.mark.asyncio
     async def test_should_not_verify_email_with_invalid_token(
         self, client: AsyncClient
     ):
-        """An invalid token should return 401."""
+        """An invalid token should redirect with an error status."""
         resp = await client.get("/auth/verify-email?token=invalid-token-here")
 
-        assert resp.status_code == 401
+        assert resp.status_code == 302
+        assert "status=error" in resp.headers["location"]
 
     @pytest.mark.asyncio
     async def test_should_not_verify_email_when_already_verified(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Verifying an already-verified user should return 400."""
+        """Verifying an already-verified user should redirect with an error status."""
         user = await seed_verified_mahasiswa(db_session)
 
         from src.infrastructure.services.jwt_token_service import JWTTokenService
@@ -285,8 +281,8 @@ class TestVerifyEmail:
 
         resp = await client.get(f"/auth/verify-email?token={token}")
 
-        assert resp.status_code == 400
-        assert resp.json()["status"] == "error"
+        assert resp.status_code == 302
+        assert "status=error" in resp.headers["location"]
 
     @pytest.mark.asyncio
     async def test_should_not_verify_email_when_token_is_missing(
