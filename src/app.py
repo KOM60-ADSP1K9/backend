@@ -18,13 +18,12 @@ from src.features.user.user_controller import user_router
 from src.features.inquiry.inquiry_controller import inquiry_router
 from src.features.notification.notification_controller import notification_router
 from fastapi.middleware.cors import CORSMiddleware
-from src.core.config import settings
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_BASE_URL],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
