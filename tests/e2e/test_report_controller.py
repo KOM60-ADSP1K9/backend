@@ -153,6 +153,29 @@ class TestUpdateLaporanStatus:
         assert reloaded.status is LaporanStatus.RESOLVED
 
     @pytest.mark.asyncio
+    async def test_owner_cannot_mark_found_laporan_as_self_resolved(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Found laporan cannot be self-resolved — that transition is only valid for lost laporan."""
+        owner = await seed_verified_mahasiswa(db_session)
+        laporan = await _seed_found_laporan(db_session, owner)
+        headers = get_auth_header(owner)
+
+        resp = await client.patch(
+            f"/reports/{laporan.id}/status",
+            headers=headers,
+            json={"status": LaporanStatus.SELF_RESOLVED.value},
+        )
+
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["status"] == "error"
+
+        reloaded = await LaporanRepository(db_session).findById(laporan.id)
+        assert reloaded is not None
+        assert reloaded.status is LaporanStatus.ACTIVE
+
+    @pytest.mark.asyncio
     async def test_staff_non_owner_is_forbidden(
         self, client: AsyncClient, db_session: AsyncSession
     ):
