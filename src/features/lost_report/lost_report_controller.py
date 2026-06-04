@@ -7,7 +7,9 @@ from datetime import date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from pydantic import BaseModel, ConfigDict, PastDate
+from pydantic import BaseModel, ConfigDict
+
+from src.core.validators import TodayOrPastDate
 
 from src.core.exceptions import BadRequestException, RequestTooLargeException
 from src.core.auth import require_role
@@ -77,7 +79,7 @@ async def create_lost_report(
     barang_description: str = Form(...),
     kategori_barang_id: UUID = Form(...),
     lost_at_location_id: UUID = Form(...),
-    lost_at_date: PastDate = Form(...),
+    lost_at_date: TodayOrPastDate = Form(...),
     current_user: User = Depends(require_role(UserRole.MAHASISWA)),
     usecase: CreateLostReportUsecase = Depends(get_create_lost_report_usecase),
 ) -> HTTPDataResponse[CreateLostReportResponseDto]:
